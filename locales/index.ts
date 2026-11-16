@@ -15,6 +15,7 @@ export interface Translations {
     clubes: string;
     transferencias: string;
     usuarios: string;
+    formacao: string;
   };
   sidebar: {
     principal: string;
@@ -898,6 +899,79 @@ export interface Translations {
     base: string;
     market: string;
     compare: string;
+  };
+  formacao: {
+    title: string;
+    subtitle: string;
+    ficticio: string;
+    carregando: string;
+    erro: string;
+    kpiSeuClube: string;
+    kpiNivel: string;
+    kpiChanceNivel: string;
+    kpiElenco: string;
+    kpiHistorico: string;
+    definicao: string;
+    condicional: string;
+    niveisTitulo: string;
+    niveisDesc: string;
+    colNivel: string;
+    colDescricao: string;
+    colAtletas: string;
+    colProfissionais: string;
+    colConta: string;
+    colChance: string;
+    colIntervalo: string;
+    colTeste: string;
+    nivelDesc: Record<"1" | "2" | "3" | "4" | "5", string>;
+    testeAprovado: string;
+    testeReprovado: string;
+    testeExplica: string;
+    seuNivel: string;
+    clubesTitulo: string;
+    clubesDesc: string;
+    colClube: string;
+    colIdadeEstreia: string;
+    destinosTitulo: string;
+    elencoTitulo: string;
+    elencoDesc: string;
+    colAtleta: string;
+    colIdade: string;
+    colCategoria: string;
+    colPosicao: string;
+    colJogos: string;
+    colMinutos: string;
+    colGols: string;
+    colChanceNivel: string;
+    colParecidos: string;
+    poucosCasos: string;
+    casosFmt: string;
+    detalheTitulo: string;
+    detalheTexto: string;
+    colVariavel: string;
+    colValorBruto: string;
+    colValorUsado: string;
+    colMediaNivel: string;
+    colDesvios: string;
+    variaveis: Record<
+      | "fracMinutos"
+      | "fracTitular"
+      | "fracAcimaIdade"
+      | "gols90"
+      | "cartoes90"
+      | "continuidade"
+      | "subiuCategoria",
+      string
+    >;
+    encolhimento: string;
+    corteOutlier: string;
+    foraTitulo: string;
+    foraTexto: string;
+    referencia: string;
+    sim: string;
+    nao: string;
+    verDetalhe: string;
+    fecharDetalhe: string;
   };
 }
 

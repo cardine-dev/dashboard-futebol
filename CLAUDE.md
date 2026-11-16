@@ -53,6 +53,13 @@ Credenciais demo:
 - **Dashboard**: KPIs + widgets + mapa geográfico
 - **Transferências** (`/admin/transferencias`): importação CSV
 - **Scout AI** (`/admin/base-ai`): assistente (respostas mockadas em demo)
+- **Formação** (`/formacao`): chance de profissionalização por nível do clube formador e casos parecidos.
+  Dados fictícios em `lib/formacao/dados.ts`, cálculo em `lib/formacao/projecao.ts` e `estatistica.ts`,
+  API em `app/api/formacao`. Regras: toda chance é condicional ao grupo (profissionais ÷ atletas do grupo)
+  e mostra a conta; casos parecidos só comparam mesmo nível e mesmo setor, com limiar de 90% e mínimo de
+  20 casos; gols e cartões por 90 são encolhidos para a média do grupo; z-scores cortados em ±3; outros
+  clubes sempre anônimos. Não adicionar valor de mercado projetado, valor da carteira nem chance individual
+  por modelo sem validação fora da amostra.
 
 ### TypeScript
 `strict: false`. Alias `@/*` → raiz. Tipos do jogador em `type/jogador.tsx`.

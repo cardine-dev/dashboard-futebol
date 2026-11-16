@@ -10,6 +10,7 @@ import {
   UserCircle2,
   Download,
   IdCard,
+  GraduationCap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Role } from "@prisma/client";
@@ -102,6 +103,7 @@ export const navGroups: NavGroup[] = [
   ]),
 
   group("Análise", "analise", [
+    item("/formacao", "Formação", "formacao", GraduationCap, ROLES_BOTH),
     item("/admin/base-ai", "Scout AI", "baseAi", Brain, ROLES_ADMIN_ONLY),
   ]),
 

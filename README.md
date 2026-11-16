@@ -56,6 +56,11 @@ dashboard-futebol/
 - **Clubes / Transferências**: gestão e importação.
 - **Relatórios**: análises geradas via Scout AI.
 - **Scout AI**: assistente de análise de elenco e mercado (modo demo: respostas simuladas).
+- **Formação** (`/formacao`): chance de virar profissional por nível do clube formador
+  (5 níveis), sempre condicional ao grupo e com a conta à mostra, intervalo de 90% e teste
+  fora da amostra; comparação com clubes do mesmo nível, com os outros clubes anônimos;
+  e casos parecidos anônimos para cada atleta da base, como referência e não como previsão.
+  Projeções financeiras ficam de fora até poderem ser validadas.
 
 ## Modo demo — como funciona
 
