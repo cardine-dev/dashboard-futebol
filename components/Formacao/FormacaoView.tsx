@@ -1,8 +1,19 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, EyeOff } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CircleAlert,
+  EyeOff,
+  Minus,
+} from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
+import type { Translations } from "@/locales";
 import type {
   AtletaElenco,
   ChanceNivel,
@@ -13,11 +24,44 @@ import type {
   VariavelAtleta,
 } from "@/type/formacao";
 
-const BASE_BLUE = "#334155";
+/** Cor de destaque do app (slate-700) e cinza de contexto (slate-400). */
+const DESTAQUE = "#334155";
+const CONTEXTO = "#94a3b8";
 const LOCALES: Record<string, string> = { pt: "pt-BR", en: "en-US", es: "es-ES" };
+
+type TF = Translations["formacao"];
+type Destino = keyof TF["destinoNome"];
+type NivelChave = keyof TF["nivelDesc"];
 
 function preencher(texto: string, vars: Record<string, string | number>) {
   return texto.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
+}
+
+/** Preenche um texto do dicionário trocando chaves por nós (destaques) e "\n" por quebra de linha. */
+function Rico({
+  texto,
+  vars = {},
+  nos = {},
+}: {
+  texto: string;
+  vars?: Record<string, string | number>;
+  nos?: Record<string, React.ReactNode>;
+}) {
+  return (
+    <>
+      {texto.split("\n").map((linha, i) => (
+        <Fragment key={i}>
+          {i > 0 ? <br /> : null}
+          {linha.split(/(\{\w+\})/g).map((parte, j) => {
+            const m = parte.match(/^\{(\w+)\}$/);
+            if (!m) return <Fragment key={j}>{parte}</Fragment>;
+            if (m[1] in nos) return <Fragment key={j}>{nos[m[1]]}</Fragment>;
+            return <Fragment key={j}>{String(vars[m[1]] ?? parte)}</Fragment>;
+          })}
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 function useFormato() {
@@ -27,7 +71,44 @@ function useFormato() {
     new Intl.NumberFormat(loc, { minimumFractionDigits: casas, maximumFractionDigits: casas }).format(x);
   const pct = (x: number, casas = 1) => `${num(x * 100, casas)}%`;
   const faixa = (i: Intervalo) => `${pct(i.inferior)} – ${pct(i.superior)}`;
-  return { num, pct, faixa };
+  /** Chance como "x de cada 100": inteiro a partir de 10, uma casa abaixo disso. */
+  const cada100 = (p: number) => {
+    const v = p * 100;
+    return new Intl.NumberFormat(loc, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: v >= 10 ? 0 : 1,
+    }).format(v);
+  };
+  return { num, pct, faixa, cada100 };
+}
+
+/* ----------------------------- comparação ----------------------------- */
+type Comparacao = "acima" | "abaixo" | "igual";
+
+/** Compara na mesma precisão em que o número aparece (décimo de ponto percentual). */
+function comparar(x: number, ref: number): Comparacao {
+  const a = Math.round(x * 1000);
+  const b = Math.round(ref * 1000);
+  if (a === b) return "igual";
+  return a > b ? "acima" : "abaixo";
+}
+
+const ESTILO_COMPARACAO: Record<Comparacao, { selo: string; caixa: string; Icone: typeof Minus }> = {
+  acima: { selo: "bg-emerald-50 text-emerald-700", caixa: "bg-emerald-50 text-emerald-800", Icone: ArrowUpRight },
+  abaixo: { selo: "bg-orange-50 text-orange-700", caixa: "bg-orange-50 text-orange-800", Icone: ArrowDownRight },
+  igual: { selo: "bg-slate-100 text-slate-600", caixa: "bg-slate-50 text-slate-700", Icone: Minus },
+};
+
+function SeloComparacao({ c, rotulo }: { c: Comparacao; rotulo: string }) {
+  const { selo, Icone } = ESTILO_COMPARACAO[c];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${selo}`}
+    >
+      <Icone className="h-3.5 w-3.5" />
+      {rotulo}
+    </span>
+  );
 }
 
 /* ----------------------------- blocos ----------------------------- */
@@ -56,225 +137,399 @@ function Cartao({
   );
 }
 
-function Kpi({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalhe?: string | string[] }) {
-  const linhas = detalhe == null ? [] : Array.isArray(detalhe) ? detalhe : [detalhe];
+/** Valor "x de cada 100" com a porcentagem menor ao lado. */
+function Cada100({ p, forte }: { p: number; forte?: boolean }) {
+  const { t } = useI18n();
+  const f = useFormato();
   return (
-    <div
-      className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
-      style={{ borderLeft: `3px solid ${BASE_BLUE}` }}
+    <span className="whitespace-nowrap text-sm">
+      <span className={forte ? "font-semibold text-slate-900" : "font-medium text-slate-700"}>
+        {preencher(t.formacao.cada100, { x: f.cada100(p) })}
+      </span>{" "}
+      <span className="text-xs text-slate-500">{f.pct(p)}</span>
+    </span>
+  );
+}
+
+/* ----------------------------- destaque principal ----------------------------- */
+function Destaque({ dados }: { dados: FormacaoResponse }) {
+  const { t } = useI18n();
+  const f = useFormato();
+  const tf = t.formacao;
+  const nivel = dados.seuClube.nivel;
+  const seu = dados.niveis.find((n) => n.nivel === nivel);
+  if (!seu) return null;
+
+  const comparados = Array.from(new Set([1, nivel, 5]))
+    .map((n) => dados.niveis.find((x) => x.nivel === n))
+    .filter((n): n is ChanceNivel => Boolean(n));
+  const max = Math.max(...comparados.map((n) => n.chance), 0.01);
+
+  return (
+    <section
+      className="rounded-2xl border border-gray-200 bg-white shadow-sm"
+      style={{ borderLeft: `3px solid ${DESTAQUE}` }}
     >
-      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{rotulo}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{valor}</p>
-      {linhas.map((l) => (
-        <p key={l} className="mt-0.5 text-xs tabular-nums text-slate-500">
-          {l}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-/** Barra com intervalo de 90% e ponto na chance. */
-function BarraIntervalo({
-  chance,
-  intervalo,
-  escala,
-  destaque,
-}: {
-  chance: number;
-  intervalo: Intervalo;
-  escala: number;
-  destaque?: boolean;
-}) {
-  const pos = (x: number) => `${Math.min(100, (x / escala) * 100)}%`;
-  const cor = destaque ? BASE_BLUE : "#94a3b8";
-  return (
-    <div className="relative h-4 w-full min-w-[120px]">
-      <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gray-100" />
-      <div
-        className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-        style={{
-          left: pos(intervalo.inferior),
-          width: `calc(${pos(intervalo.superior)} - ${pos(intervalo.inferior)})`,
-          background: cor,
-          opacity: 0.45,
-        }}
-      />
-      <div
-        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
-        style={{ left: pos(chance), background: cor }}
-      />
-    </div>
-  );
-}
-
-/* ----------------------------- tabela por nível ----------------------------- */
-function TabelaNiveis({ niveis, seuNivel }: { niveis: ChanceNivel[]; seuNivel: number }) {
-  const { t } = useI18n();
-  const f = useFormato();
-  const tf = t.formacao;
-  const escala = Math.max(...niveis.map((n) => n.intervalo90.superior)) * 1.1;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-sm">
-        <thead>
-          <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
-            <th className="py-2 pr-3">{tf.colNivel}</th>
-            <th className="py-2 pr-3">{tf.colDescricao}</th>
-            <th className="py-2 pr-3 text-right">{tf.colConta}</th>
-            <th className="py-2 pr-3 text-right">{tf.colChance}</th>
-            <th className="py-2 pr-3">{tf.colIntervalo}</th>
-            <th className="py-2">{tf.colTeste}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {niveis.map((n) => {
-            const seu = n.nivel === seuNivel;
-            const explica = preencher(tf.testeExplica, {
-              est: n.teste.turmasEstimacao,
-              tst: n.teste.turmasTeste,
-            });
-            return (
-              <tr key={n.nivel} className={seu ? "bg-slate-50" : undefined}>
-                <td className="py-2.5 pr-3">
-                  <span className="inline-flex items-center gap-2">
-                    <span
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
-                      style={{ background: seu ? BASE_BLUE : "#94a3b8" }}
-                    >
-                      {n.nivel}
-                    </span>
-                    {seu ? (
-                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                        {tf.seuNivel}
-                      </span>
-                    ) : null}
+      <div className="grid grid-cols-1 gap-8 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+            {dados.seuClube.nome} · {preencher(tf.nivelN, { n: nivel })} ·{" "}
+            {tf.nivelDesc[String(nivel) as NivelChave]}
+          </p>
+          <p className="mt-3 text-2xl font-semibold leading-tight text-slate-900 sm:text-3xl">
+            <Rico
+              texto={tf.heroFrase}
+              nos={{
+                x: (
+                  <span className="text-5xl font-bold leading-none" style={{ color: DESTAQUE }}>
+                    {f.cada100(seu.chance)}
                   </span>
-                </td>
-                <td className="py-2.5 pr-3 text-slate-700">
-                  {tf.nivelDesc[String(n.nivel) as "1"]}
-                </td>
-                <td className="whitespace-nowrap py-2.5 pr-3 text-right tabular-nums text-slate-500">
-                  {f.num(n.profissionais)} ÷ {f.num(n.atletas)}
-                </td>
-                <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-slate-900">
-                  {f.pct(n.chance)}
-                </td>
-                <td className="py-2.5 pr-3">
-                  <div className="flex items-center gap-3">
-                    <BarraIntervalo
-                      chance={n.chance}
-                      intervalo={n.intervalo90}
-                      escala={escala}
-                      destaque={seu}
-                    />
-                    <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">
-                      {f.faixa(n.intervalo90)}
-                    </span>
-                  </div>
-                </td>
-                <td className="py-2.5">
-                  <span
-                    title={`${explica} ${f.pct(n.teste.chanceEstimada)} · ${f.faixa(n.teste.intervaloObservado)}`}
-                    className={[
-                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-                      n.teste.aprovado
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-amber-50 text-amber-700",
-                    ].join(" ")}
-                  >
-                    {n.teste.aprovado ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <CircleAlert className="h-3.5 w-3.5" />
-                    )}
-                    {n.teste.aprovado ? tf.testeAprovado : tf.testeReprovado}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <p className="mt-3 text-xs text-slate-500">
-        {preencher(tf.testeExplica, {
-          est: niveis[0]?.teste.turmasEstimacao ?? "",
-          tst: niveis[0]?.teste.turmasTeste ?? "",
-        })}
-      </p>
-    </div>
-  );
-}
-
-/* ----------------------------- clubes e destinos ----------------------------- */
-function TabelaClubes({ clubes }: { clubes: ClubeComparado[] }) {
-  const { t } = useI18n();
-  const f = useFormato();
-  const tf = t.formacao;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] text-sm">
-        <thead>
-          <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
-            <th className="py-2 pr-3">{tf.colClube}</th>
-            <th className="py-2 pr-3 text-right">{tf.colConta}</th>
-            <th className="py-2 pr-3 text-right">{tf.colChance}</th>
-            <th className="py-2 pr-3 text-right">{tf.colIntervalo}</th>
-            <th className="py-2 text-right">{tf.colIdadeEstreia}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {clubes.map((c) => (
-            <tr key={c.rotulo} className={c.ehSeuClube ? "bg-slate-50" : undefined}>
-              <td className={["whitespace-nowrap py-2.5 pr-3", c.ehSeuClube ? "font-semibold text-slate-900" : "text-slate-600"].join(" ")}>
-                {c.rotulo}
-              </td>
-              <td className="whitespace-nowrap py-2.5 pr-3 text-right tabular-nums text-slate-500">
-                {f.num(c.profissionais)} ÷ {f.num(c.atletas)}
-              </td>
-              <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-slate-900">
-                {f.pct(c.chance)}
-              </td>
-              <td className="whitespace-nowrap py-2.5 pr-3 text-right text-xs tabular-nums text-slate-500">
-                {f.faixa(c.intervalo90)}
-              </td>
-              <td className="py-2.5 text-right tabular-nums text-slate-700">
-                {c.idadeMediaEstreia == null ? "—" : f.num(c.idadeMediaEstreia, 1)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Destinos({ destinos }: { destinos: DestinoDivisao[] }) {
-  const f = useFormato();
-  const max = Math.max(...destinos.map((d) => d.fracao), 0.01);
-  return (
-    <ul className="space-y-2.5">
-      {destinos.map((d) => (
-        <li key={d.divisao} className="grid grid-cols-[84px_1fr_88px] items-center gap-3 text-sm">
-          <span className="text-slate-700">{d.divisao}</span>
-          <div className="h-2.5 rounded-full bg-gray-100">
-            <div
-              className="h-2.5 rounded-full"
-              style={{ width: `${(d.fracao / max) * 100}%`, background: BASE_BLUE }}
+                ),
+              }}
             />
+          </p>
+          <div className="mt-4 space-y-0.5 text-sm">
+            <p className="text-slate-700">
+              {preencher(tf.heroConta, {
+                k: f.num(seu.profissionais),
+                n: f.num(seu.atletas),
+                pct: f.pct(seu.chance),
+              })}
+            </p>
+            <p className="text-slate-500">
+              {preencher(tf.heroIntervalo, {
+                inf: f.pct(seu.intervalo90.inferior),
+                sup: f.pct(seu.intervalo90.superior),
+              })}
+            </p>
           </div>
-          <span className="text-right text-xs tabular-nums text-slate-500">
-            {f.pct(d.fracao, 0)} · {f.num(d.profissionais)}
-          </span>
-        </li>
-      ))}
+          <p className="mt-4 text-xs text-slate-500">
+            {preencher(tf.elencoQtd, { n: f.num(dados.elenco.length) })} ·{" "}
+            {preencher(tf.historicoQtd, { n: f.num(dados.totalHistorico) })}
+          </p>
+        </div>
+
+        <div className="lg:border-l lg:border-gray-100 lg:pl-8">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{tf.heroComparaTitulo}</p>
+          <ul className="mt-4 space-y-4">
+            {comparados.map((n) => {
+              const ehSeu = n.nivel === nivel;
+              return (
+                <li
+                  key={n.nivel}
+                  title={`${preencher(tf.contaIntervalo, {
+                    k: f.num(n.profissionais),
+                    n: f.num(n.atletas),
+                    inf: f.pct(n.intervalo90.inferior),
+                    sup: f.pct(n.intervalo90.superior),
+                  })}`}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span
+                      className={`whitespace-nowrap text-sm ${ehSeu ? "font-semibold text-slate-900" : "text-slate-600"}`}
+                      title={tf.nivelDesc[String(n.nivel) as NivelChave]}
+                    >
+                      {ehSeu ? `${tf.seuNivel} (${n.nivel})` : preencher(tf.nivelN, { n: n.nivel })}
+                    </span>
+                    <Cada100 p={n.chance} forte={ehSeu} />
+                  </div>
+                  <div className="mt-1.5 h-2.5">
+                    <div
+                      className="h-2.5 rounded-r"
+                      style={{
+                        width: `${Math.max(1.5, (n.chance / max) * 100)}%`,
+                        background: ehSeu ? DESTAQUE : CONTEXTO,
+                      }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ----------------------------- chance por nível ----------------------------- */
+function NiveisBarras({ niveis, seuNivel }: { niveis: ChanceNivel[]; seuNivel: number }) {
+  const { t } = useI18n();
+  const f = useFormato();
+  const tf = t.formacao;
+  const max = Math.max(...niveis.map((n) => n.chance), 0.01);
+
+  return (
+    <ul className="-mx-5 divide-y divide-gray-100">
+      {niveis.map((n) => {
+        const seu = n.nivel === seuNivel;
+        const teste = preencher(tf.testeTooltip, {
+          est: n.teste.turmasEstimacao,
+          tst: n.teste.turmasTeste,
+          estimada: f.pct(n.teste.chanceEstimada),
+          obs: f.faixa(n.teste.intervaloObservado),
+        });
+        return (
+          <li
+            key={n.nivel}
+            className={[
+              "grid grid-cols-1 gap-2 px-5 py-3 lg:grid-cols-[320px_minmax(0,1fr)_320px] lg:items-center lg:gap-5",
+              seu ? "bg-slate-50" : "",
+            ].join(" ")}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={{ background: seu ? DESTAQUE : CONTEXTO }}
+              >
+                {n.nivel}
+              </span>
+              <span className={`text-sm ${seu ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+                {tf.nivelDesc[String(n.nivel) as NivelChave]}
+              </span>
+              {seu ? (
+                <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                  {tf.seuNivel}
+                </span>
+              ) : null}
+            </div>
+
+            <div
+              className="flex items-center gap-3"
+              title={preencher(tf.contaIntervalo, {
+                k: f.num(n.profissionais),
+                n: f.num(n.atletas),
+                inf: f.pct(n.intervalo90.inferior),
+                sup: f.pct(n.intervalo90.superior),
+              })}
+            >
+              <div className="h-3 min-w-[80px] flex-1">
+                <div
+                  className="h-3 rounded-r"
+                  style={{
+                    width: `${Math.max(1.5, (n.chance / max) * 100)}%`,
+                    background: seu ? DESTAQUE : CONTEXTO,
+                  }}
+                />
+              </div>
+              <span className="w-[150px] shrink-0">
+                <Cada100 p={n.chance} forte={seu} />
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 lg:justify-end">
+              <span className="whitespace-nowrap tabular-nums">
+                {preencher(tf.contaIntervalo, {
+                  k: f.num(n.profissionais),
+                  n: f.num(n.atletas),
+                  inf: f.pct(n.intervalo90.inferior),
+                  sup: f.pct(n.intervalo90.superior),
+                })}
+              </span>
+              {n.teste.aprovado ? (
+                <span title={teste} className="inline-flex items-center gap-1 whitespace-nowrap text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {tf.testeAprovado}
+                </span>
+              ) : (
+                <span
+                  title={teste}
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700"
+                >
+                  <CircleAlert className="h-3.5 w-3.5" />
+                  {tf.testeReprovado}
+                </span>
+              )}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
+/* ----------------------------- clubes do mesmo nível ----------------------------- */
+function Clubes({ clubes, mediaNivel }: { clubes: ClubeComparado[]; mediaNivel: number }) {
+  const { t } = useI18n();
+  const f = useFormato();
+  const tf = t.formacao;
+  const seu = clubes.find((c) => c.ehSeuClube);
+  const max = Math.max(...clubes.map((c) => c.chance), mediaNivel, 0.01) * 1.1;
+  const pos = (x: number) => `${Math.min(100, (x / max) * 100)}%`;
+  const comp = seu ? comparar(seu.chance, mediaNivel) : null;
+  const resumo =
+    comp === "acima" ? tf.clubesResumoAcima : comp === "abaixo" ? tf.clubesResumoAbaixo : tf.clubesResumoIgual;
+
+  return (
+    <div className="space-y-4">
+      {seu && comp ? (
+        <div className={`flex items-start gap-2 rounded-xl px-4 py-3 text-sm ${ESTILO_COMPARACAO[comp].caixa}`}>
+          {(() => {
+            const Icone = ESTILO_COMPARACAO[comp].Icone;
+            return <Icone className="mt-0.5 h-4 w-4 shrink-0" />;
+          })()}
+          <p>
+            {preencher(resumo, {
+              k: f.num(seu.profissionais),
+              n: f.num(seu.atletas),
+              x: f.cada100(seu.chance),
+              m: f.cada100(mediaNivel),
+            })}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm" style={{ background: DESTAQUE }} />
+          {tf.legSeuClube}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm" style={{ background: CONTEXTO }} />
+          {tf.legOutrosClubes}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3.5 w-0.5 bg-slate-900" />
+          {tf.legMediaNivel}: {preencher(tf.cada100, { x: f.cada100(mediaNivel) })}
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead>
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+              <th className="py-2 pr-4">{tf.colClube}</th>
+              <th className="py-2 pr-4" colSpan={2}>
+                {tf.colChance}
+              </th>
+              <th className="min-w-[104px] py-2 text-right">{tf.colIdadeEstreia}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {clubes.map((c) => (
+              <tr
+                key={c.rotulo}
+                className={c.ehSeuClube ? "bg-slate-50" : undefined}
+                title={preencher(tf.intervaloTooltip, {
+                  inf: f.pct(c.intervalo90.inferior),
+                  sup: f.pct(c.intervalo90.superior),
+                })}
+              >
+                <td
+                  className={[
+                    "whitespace-nowrap py-2.5 pr-4",
+                    c.ehSeuClube ? "font-semibold text-slate-900" : "text-slate-600",
+                  ].join(" ")}
+                >
+                  {c.rotulo}
+                </td>
+                <td className="w-full min-w-[120px] py-2.5 pr-4">
+                  <div className="relative h-3">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-r"
+                      style={{ width: pos(c.chance), background: c.ehSeuClube ? DESTAQUE : CONTEXTO }}
+                    />
+                    <div
+                      className="absolute w-0.5 bg-slate-900"
+                      style={{ left: pos(mediaNivel), top: -5, bottom: -5 }}
+                    />
+                  </div>
+                </td>
+                <td className="whitespace-nowrap py-2.5 pr-4 text-right">
+                  <div
+                    className={
+                      c.ehSeuClube ? "text-sm font-semibold text-slate-900" : "text-sm font-medium text-slate-700"
+                    }
+                  >
+                    {preencher(tf.cada100, { x: f.cada100(c.chance) })}
+                  </div>
+                  <div className="text-xs tabular-nums text-slate-500">
+                    {preencher(tf.contaPct, {
+                      k: f.num(c.profissionais),
+                      n: f.num(c.atletas),
+                      pct: f.pct(c.chance),
+                    })}
+                  </div>
+                </td>
+                <td className="py-2.5 text-right tabular-nums text-slate-700">
+                  {c.idadeMediaEstreia == null ? "—" : f.num(c.idadeMediaEstreia, 1)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- destinos ----------------------------- */
+function Destinos({ destinos }: { destinos: DestinoDivisao[] }) {
+  const { t } = useI18n();
+  const f = useFormato();
+  const tf = t.formacao;
+  const max = Math.max(...destinos.map((d) => d.fracao), 0.01);
+
+  // Menor conjunto de destinos que soma pelo menos dois terços dos profissionais.
+  const ordenados = [...destinos].sort((a, b) => b.fracao - a.fracao);
+  const maioria = new Set<string>();
+  let acumulado = 0;
+  for (const d of ordenados) {
+    if (acumulado >= 2 / 3 || d.fracao <= 0) break;
+    maioria.add(d.divisao);
+    acumulado += d.fracao;
+  }
+  const nomes = destinos
+    .filter((d) => maioria.has(d.divisao))
+    .map((d) => tf.destinoEm[d.divisao as Destino] ?? d.divisao);
+  const lista =
+    nomes.length <= 1
+      ? nomes.join("")
+      : `${nomes.slice(0, -1).join(", ")} ${tf.ou} ${nomes[nomes.length - 1]}`;
+
+  return (
+    <div className="space-y-4">
+      {nomes.length ? (
+        <p className="text-sm text-slate-700">
+          {preencher(tf.destinosResumo, { lista, pct: f.pct(acumulado, 0) })}
+        </p>
+      ) : null}
+      <ul className="space-y-2.5">
+        {destinos.map((d) => {
+          const forte = maioria.has(d.divisao);
+          return (
+            <li key={d.divisao} className="grid grid-cols-[96px_1fr_72px] items-center gap-3 text-sm">
+              <span className={forte ? "font-medium text-slate-900" : "text-slate-600"}>
+                {tf.destinoNome[d.divisao as Destino] ?? d.divisao}
+              </span>
+              <div className="h-2.5">
+                <div
+                  className="h-2.5 rounded-r"
+                  style={{
+                    width: `${Math.max(1.5, (d.fracao / max) * 100)}%`,
+                    background: forte ? DESTAQUE : CONTEXTO,
+                  }}
+                />
+              </div>
+              <span className="text-right text-xs tabular-nums text-slate-500">
+                {f.pct(d.fracao, 0)} · {f.num(d.profissionais)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /* ----------------------------- elenco ----------------------------- */
-function valorVariavel(v: VariavelAtleta, campo: "bruto" | "usado" | "mediaNivel", sim: string, nao: string, f: ReturnType<typeof useFormato>) {
+function valorVariavel(
+  v: VariavelAtleta,
+  campo: "bruto" | "usado" | "mediaNivel",
+  sim: string,
+  nao: string,
+  f: ReturnType<typeof useFormato>,
+) {
   const x = v[campo];
   switch (v.chave) {
     case "fracMinutos":
@@ -300,12 +555,17 @@ function DetalheAtleta({ atleta }: { atleta: AtletaElenco }) {
   const cp = atleta.casosParecidos;
   return (
     <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-      <p className="text-xs font-semibold text-slate-800">{tf.detalheTitulo}</p>
+      <p className="text-sm font-medium text-slate-800">
+        {preencher(tf.detalheJogos, {
+          jogos: f.num(atleta.jogos),
+          minutos: f.num(atleta.minutos),
+          gols: f.num(atleta.gols),
+        })}
+      </p>
       <p className="text-xs text-slate-600">
-        {preencher(tf.detalheTexto, {
+        {preencher(tf.detalheCorte, {
           corte: atleta.idadeCorte,
           limiar: f.num(cp.limiarSemelhanca * 100),
-          min: cp.minimoCasos,
         })}
       </p>
       <div className="overflow-x-auto">
@@ -325,7 +585,7 @@ function DetalheAtleta({ atleta }: { atleta: AtletaElenco }) {
               return (
                 <tr key={v.chave}>
                   <td className="py-1.5 pr-3 text-slate-700">
-                    {tf.variaveis[v.chave as "gols90"] ?? v.chave}
+                    {tf.variaveis[v.chave as keyof TF["variaveis"]] ?? v.chave}
                   </td>
                   <td className="py-1.5 pr-3 text-right tabular-nums text-slate-600">
                     {valorVariavel(v, "bruto", tf.sim, tf.nao, f)}
@@ -351,9 +611,40 @@ function DetalheAtleta({ atleta }: { atleta: AtletaElenco }) {
           </tbody>
         </table>
       </div>
-      <ul className="space-y-1 text-xs text-slate-500">
-        <li>{tf.encolhimento}</li>
-        <li>{tf.corteOutlier}</li>
+    </div>
+  );
+}
+
+function LegendaElenco({ chanceNivel }: { chanceNivel: number }) {
+  const { t } = useI18n();
+  const f = useFormato();
+  const tf = t.formacao;
+  return (
+    <div className="mb-4 space-y-2 rounded-xl bg-gray-50 px-4 py-3">
+      <p className="text-sm text-slate-700">
+        {preencher(tf.elencoChanceNivel, { x: f.cada100(chanceNivel) })}
+      </p>
+      <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs text-slate-600 md:grid-cols-2">
+        <li className="flex items-start gap-2">
+          <SeloComparacao c="acima" rotulo={tf.seloAcima} />
+          <span className="pt-0.5">{tf.legAcima}</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <SeloComparacao c="abaixo" rotulo={tf.seloAbaixo} />
+          <span className="pt-0.5">{tf.legAbaixo}</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 font-semibold text-slate-400 ring-1 ring-gray-200">
+            {tf.legPoucosRotulo}
+          </span>
+          <span className="pt-0.5">{tf.legPoucos}</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+            {tf.referencia}
+          </span>
+          <span className="pt-0.5">{tf.legReferencia}</span>
+        </li>
       </ul>
     </div>
   );
@@ -362,150 +653,179 @@ function DetalheAtleta({ atleta }: { atleta: AtletaElenco }) {
 function CelulaParecidos({ atleta }: { atleta: AtletaElenco }) {
   const { t } = useI18n();
   const f = useFormato();
+  const tf = t.formacao;
   const cp = atleta.casosParecidos;
   if (!cp.suficiente || cp.chance == null) {
     return (
-      <span className="text-xs text-slate-400">
-        {t.formacao.poucosCasos} · {f.num(cp.casos)}
-      </span>
+      <div className="whitespace-nowrap text-sm text-slate-400">
+        <p>{tf.poucosCasos}</p>
+        <p className="text-xs">{preencher(tf.poucosCasosN, { n: f.num(cp.casos) })}</p>
+      </div>
     );
   }
   return (
-    <span className="inline-flex flex-col items-end">
-      <span className="font-semibold tabular-nums text-slate-900">{f.pct(cp.chance)}</span>
-      <span className="text-[11px] tabular-nums text-slate-500">
-        {preencher(t.formacao.casosFmt, { k: f.num(cp.profissionais), n: f.num(cp.casos) })}
-      </span>
-    </span>
+    <div className="whitespace-nowrap">
+      <p className="text-sm text-slate-700">
+        <Rico
+          texto={tf.parecidosFrase}
+          nos={{ x: <span className="text-base font-semibold text-slate-900">{f.cada100(cp.chance)}</span> }}
+        />
+      </p>
+      <p className="text-xs tabular-nums text-slate-500">
+        {preencher(tf.parecidosConta, {
+          k: f.num(cp.profissionais),
+          n: f.num(cp.casos),
+          pct: f.pct(cp.chance),
+        })}
+      </p>
+    </div>
   );
 }
 
 function TabelaElenco({ elenco }: { elenco: AtletaElenco[] }) {
   const { t } = useI18n();
-  const f = useFormato();
   const tf = t.formacao;
   const [aberto, setAberto] = useState<string | null>(null);
+  const chanceNivel = elenco[0]?.chanceNivel ?? 0;
+
+  const ordenado = useMemo(() => {
+    const ok = (a: AtletaElenco) => a.casosParecidos.suficiente && a.casosParecidos.chance != null;
+    return [...elenco].sort((a, b) => {
+      if (ok(a) !== ok(b)) return ok(a) ? -1 : 1;
+      if (ok(a)) {
+        const d = (b.casosParecidos.chance ?? 0) - (a.casosParecidos.chance ?? 0);
+        if (d !== 0) return d;
+      }
+      return b.casosParecidos.casos - a.casosParecidos.casos;
+    });
+  }, [elenco]);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[860px] text-sm">
-        <thead>
-          <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
-            <th className="py-2 pr-3">{tf.colAtleta}</th>
-            <th className="py-2 pr-3 text-right">{tf.colIdade}</th>
-            <th className="py-2 pr-3">{tf.colCategoria}</th>
-            <th className="py-2 pr-3">{tf.colPosicao}</th>
-            <th className="py-2 pr-3 text-right">{tf.colJogos}</th>
-            <th className="py-2 pr-3 text-right">{tf.colMinutos}</th>
-            <th className="py-2 pr-3 text-right">{tf.colGols}</th>
-            <th className="py-2 pr-3 text-right">{tf.colChanceNivel}</th>
-            <th className="py-2 pr-3 text-right">{tf.colParecidos}</th>
-            <th className="py-2" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {elenco.map((a) => {
-            const isOpen = aberto === a.id;
-            return (
-              <Fragment key={a.id}>
-                <tr className="align-middle">
-                  <td className="py-2.5 pr-3 font-medium text-slate-800">{a.nome}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">{a.idade}</td>
-                  <td className="py-2.5 pr-3 text-slate-600">{a.categoria}</td>
-                  <td className="py-2.5 pr-3 text-slate-600">{a.posicao}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">{f.num(a.jogos)}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">{f.num(a.minutos)}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">{f.num(a.gols)}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-900">{f.pct(a.chanceNivel)}</td>
-                  <td className="py-2.5 pr-3 text-right">
-                    <CelulaParecidos atleta={a} />
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setAberto(isOpen ? null : a.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-gray-50"
-                      aria-expanded={isOpen}
-                    >
-                      {isOpen ? tf.fecharDetalhe : tf.verDetalhe}
-                      {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    </button>
-                  </td>
-                </tr>
-                {isOpen ? (
-                  <tr>
-                    <td colSpan={10} className="pb-4">
-                      <DetalheAtleta atleta={a} />
+    <div>
+      <LegendaElenco chanceNivel={chanceNivel} />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+              <th className="py-2 pr-4">{tf.colAtleta}</th>
+              <th className="py-2 pr-4">{tf.colParecidos}</th>
+              <th className="whitespace-nowrap py-2 pr-4">{tf.colComparacao}</th>
+              <th className="w-full py-2" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {ordenado.map((a) => {
+              const isOpen = aberto === a.id;
+              const cp = a.casosParecidos;
+              const comp = cp.suficiente && cp.chance != null ? comparar(cp.chance, a.chanceNivel) : null;
+              const rotulo =
+                comp === "acima" ? tf.seloAcima : comp === "abaixo" ? tf.seloAbaixo : tf.seloIgual;
+              return (
+                <Fragment key={a.id}>
+                  <tr className="align-middle">
+                    <td className="py-3 pr-4">
+                      <p className="whitespace-nowrap font-medium text-slate-800">{a.nome}</p>
+                      <p className="whitespace-nowrap text-xs text-slate-500">
+                        {preencher(tf.atletaSub, { idade: a.idade, categoria: a.categoria, posicao: a.posicao })}
+                      </p>
+                    </td>
+                    <td className="py-3 pr-8">
+                      <CelulaParecidos atleta={a} />
+                    </td>
+                    <td className="py-3 pr-4">
+                      {comp ? <SeloComparacao c={comp} rotulo={rotulo} /> : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setAberto(isOpen ? null : a.id)}
+                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-gray-50"
+                        aria-expanded={isOpen}
+                      >
+                        {isOpen ? tf.fecharDetalhe : tf.verDetalhe}
+                        {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </button>
                     </td>
                   </tr>
-                ) : null}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+                  {isOpen ? (
+                    <tr>
+                      <td colSpan={4} className="pb-4">
+                        <DetalheAtleta atleta={a} />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
+  );
+}
+
+/* ----------------------------- como ler ----------------------------- */
+function ComoLer({ dados }: { dados: FormacaoResponse }) {
+  const { t } = useI18n();
+  const f = useFormato();
+  const tf = t.formacao;
+  const teste = dados.niveis[0]?.teste;
+  const cp = dados.elenco[0]?.casosParecidos;
+  const itens = [
+    tf.lerCada100,
+    preencher(tf.lerDefinicao, {
+      jogos: dados.definicaoProfissional.jogosMinimos,
+      idade: dados.definicaoProfissional.idadeLimite,
+    }),
+    tf.lerCondicional,
+    tf.lerIntervalo,
+    preencher(tf.lerTeste, { est: teste?.turmasEstimacao ?? "", tst: teste?.turmasTeste ?? "" }),
+    preencher(tf.lerCasos, {
+      limiar: f.num((cp?.limiarSemelhanca ?? 0.9) * 100),
+      min: cp?.minimoCasos ?? 20,
+    }),
+    tf.lerEncolhimento,
+    tf.lerCorte,
+  ];
+  return (
+    <details className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <BookOpen className="h-4 w-4 text-slate-500" />
+          {tf.comoLerTitulo}
+        </span>
+        <ChevronDown className="h-4 w-4 text-slate-500 transition group-open:rotate-180" />
+      </summary>
+      <ul className="list-disc space-y-2 border-t border-gray-100 py-4 pl-10 pr-5 text-sm text-slate-600 marker:text-slate-300">
+        {itens.map((texto) => (
+          <li key={texto}>{texto}</li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
 /* ----------------------------- tela ----------------------------- */
 export default function FormacaoView({ dados }: { dados: FormacaoResponse }) {
   const { t } = useI18n();
-  const f = useFormato();
   const tf = t.formacao;
   const nivelSeu = dados.niveis.find((n) => n.nivel === dados.seuClube.nivel);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          rotulo={tf.kpiSeuClube}
-          valor={dados.seuClube.nome}
-          detalhe={`${tf.kpiNivel} ${dados.seuClube.nivel} · ${tf.nivelDesc[String(dados.seuClube.nivel) as "1"]}`}
-        />
-        <Kpi
-          rotulo={tf.kpiChanceNivel}
-          valor={nivelSeu ? f.pct(nivelSeu.chance) : "—"}
-          detalhe={
-            nivelSeu
-              ? [
-                  preencher(tf.kpiChanceConta, {
-                    k: f.num(nivelSeu.profissionais),
-                    n: f.num(nivelSeu.atletas),
-                  }),
-                  preencher(tf.kpiChanceIntervalo, {
-                    inf: f.pct(nivelSeu.intervalo90.inferior),
-                    sup: f.pct(nivelSeu.intervalo90.superior),
-                  }),
-                ]
-              : undefined
-          }
-        />
-        <Kpi rotulo={tf.kpiElenco} valor={f.num(dados.elenco.length)} />
-        <Kpi rotulo={tf.kpiHistorico} valor={f.num(dados.totalHistorico)} />
-      </div>
-
-      <div className="space-y-1 text-xs text-slate-500">
-        <p>
-          {preencher(tf.definicao, {
-            jogos: dados.definicaoProfissional.jogosMinimos,
-            idade: dados.definicaoProfissional.idadeLimite,
-          })}
-        </p>
-        <p>{tf.condicional}</p>
-      </div>
+      <Destaque dados={dados} />
 
       <Cartao titulo={tf.niveisTitulo} descricao={tf.niveisDesc}>
-        <TabelaNiveis niveis={dados.niveis} seuNivel={dados.seuClube.nivel} />
+        <NiveisBarras niveis={dados.niveis} seuNivel={dados.seuClube.nivel} />
       </Cartao>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <Cartao
-            titulo={`${tf.clubesTitulo} · ${tf.kpiNivel} ${dados.seuClube.nivel}`}
+            titulo={`${tf.clubesTitulo} · ${preencher(tf.nivelN, { n: dados.seuClube.nivel })}`}
             descricao={tf.clubesDesc}
           >
-            <TabelaClubes clubes={dados.clubesMesmoNivel} />
+            <Clubes clubes={dados.clubesMesmoNivel} mediaNivel={nivelSeu?.chance ?? 0} />
           </Cartao>
         </div>
         <div className="lg:col-span-2">
@@ -527,13 +847,14 @@ export default function FormacaoView({ dados }: { dados: FormacaoResponse }) {
         <TabelaElenco elenco={dados.elenco} />
       </Cartao>
 
-      <div className="flex items-start gap-3 rounded-2xl border border-dashed border-gray-300 bg-white px-5 py-4">
-        <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-        <div>
-          <p className="text-sm font-semibold text-slate-700">{tf.foraTitulo}</p>
-          <p className="mt-0.5 text-xs text-slate-500">{tf.foraTexto}</p>
-        </div>
-      </div>
+      <ComoLer dados={dados} />
+
+      <p className="flex items-start gap-1.5 text-xs text-slate-400">
+        <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          <span className="font-semibold text-slate-500">{tf.foraTitulo}.</span> {tf.foraTexto}
+        </span>
+      </p>
     </div>
   );
 }
