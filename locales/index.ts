@@ -903,12 +903,13 @@ export interface Translations {
   formacao: {
     title: string;
     subtitle: string;
-    ficticio: string;
     carregando: string;
     erro: string;
     kpiSeuClube: string;
     kpiNivel: string;
     kpiChanceNivel: string;
+    kpiChanceConta: string;
+    kpiChanceIntervalo: string;
     kpiElenco: string;
     kpiHistorico: string;
     definicao: string;

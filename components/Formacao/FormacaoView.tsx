@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, EyeOff, Info } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, EyeOff } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
 import type {
   AtletaElenco,
@@ -56,7 +56,8 @@ function Cartao({
   );
 }
 
-function Kpi({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalhe?: string }) {
+function Kpi({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalhe?: string | string[] }) {
+  const linhas = detalhe == null ? [] : Array.isArray(detalhe) ? detalhe : [detalhe];
   return (
     <div
       className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
@@ -64,7 +65,11 @@ function Kpi({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalh
     >
       <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{rotulo}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{valor}</p>
-      {detalhe ? <p className="mt-0.5 text-xs tabular-nums text-slate-500">{detalhe}</p> : null}
+      {linhas.map((l) => (
+        <p key={l} className="mt-0.5 text-xs tabular-nums text-slate-500">
+          {l}
+        </p>
+      ))}
     </div>
   );
 }
@@ -150,7 +155,7 @@ function TabelaNiveis({ niveis, seuNivel }: { niveis: ChanceNivel[]; seuNivel: n
                 <td className="py-2.5 pr-3 text-slate-700">
                   {tf.nivelDesc[String(n.nivel) as "1"]}
                 </td>
-                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-500">
+                <td className="whitespace-nowrap py-2.5 pr-3 text-right tabular-nums text-slate-500">
                   {f.num(n.profissionais)} ÷ {f.num(n.atletas)}
                 </td>
                 <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-slate-900">
@@ -222,16 +227,16 @@ function TabelaClubes({ clubes }: { clubes: ClubeComparado[] }) {
         <tbody className="divide-y divide-gray-100">
           {clubes.map((c) => (
             <tr key={c.rotulo} className={c.ehSeuClube ? "bg-slate-50" : undefined}>
-              <td className={["py-2.5 pr-3", c.ehSeuClube ? "font-semibold text-slate-900" : "text-slate-600"].join(" ")}>
+              <td className={["whitespace-nowrap py-2.5 pr-3", c.ehSeuClube ? "font-semibold text-slate-900" : "text-slate-600"].join(" ")}>
                 {c.rotulo}
               </td>
-              <td className="py-2.5 pr-3 text-right tabular-nums text-slate-500">
+              <td className="whitespace-nowrap py-2.5 pr-3 text-right tabular-nums text-slate-500">
                 {f.num(c.profissionais)} ÷ {f.num(c.atletas)}
               </td>
               <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-slate-900">
                 {f.pct(c.chance)}
               </td>
-              <td className="py-2.5 pr-3 text-right text-xs tabular-nums text-slate-500">
+              <td className="whitespace-nowrap py-2.5 pr-3 text-right text-xs tabular-nums text-slate-500">
                 {f.faixa(c.intervalo90)}
               </td>
               <td className="py-2.5 text-right tabular-nums text-slate-700">
@@ -452,11 +457,6 @@ export default function FormacaoView({ dados }: { dados: FormacaoResponse }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>{tf.ficticio}</span>
-      </div>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           rotulo={tf.kpiSeuClube}
@@ -468,7 +468,16 @@ export default function FormacaoView({ dados }: { dados: FormacaoResponse }) {
           valor={nivelSeu ? f.pct(nivelSeu.chance) : "—"}
           detalhe={
             nivelSeu
-              ? `${f.num(nivelSeu.profissionais)} ÷ ${f.num(nivelSeu.atletas)} · ${f.faixa(nivelSeu.intervalo90)}`
+              ? [
+                  preencher(tf.kpiChanceConta, {
+                    k: f.num(nivelSeu.profissionais),
+                    n: f.num(nivelSeu.atletas),
+                  }),
+                  preencher(tf.kpiChanceIntervalo, {
+                    inf: f.pct(nivelSeu.intervalo90.inferior),
+                    sup: f.pct(nivelSeu.intervalo90.superior),
+                  }),
+                ]
               : undefined
           }
         />
