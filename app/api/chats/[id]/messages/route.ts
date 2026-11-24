@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authHelper";
 import { apiError, handleRouteError } from "@/lib/apiError";
+import { jsonNull } from "@/lib/validation/player";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -47,8 +48,8 @@ export async function POST(
         conversationId: id,
         role: m.role as string,
         content: String(m.content).trim(),
-        toolTraces: m.toolTraces ?? null,
-        attachments: m.attachments ?? null,
+        toolTraces: jsonNull(m.toolTraces ?? null),
+        attachments: jsonNull(m.attachments ?? null),
       }));
 
     if (data.length === 0) {

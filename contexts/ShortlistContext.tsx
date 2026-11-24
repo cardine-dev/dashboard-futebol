@@ -56,13 +56,21 @@ export function ShortlistProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Ref com a lista mais recente: toggles rápidos não leem estado velho, e o
+  // aviso (outro componente) é disparado fora do updater do setState.
+  const idsRef = useRef<string[]>([]);
+  useEffect(() => {
+    idsRef.current = ids;
+  }, [ids]);
+
   // Tira da lista atletas que saíram do cadastro (o contador do topo não mente).
   const { user } = useAuth();
   useEffect(() => {
     if (!user) return;
     let alive = true;
-    const prune = () =>
-      getPlayers()
+    const prune = () => {
+      if (!idsRef.current.length) return; // lista vazia: nada a podar, nenhuma chamada
+      return getPlayers()
         .then((all) => {
           if (!alive) return;
           const valid = new Set(all.map((p) => p.id));
@@ -74,22 +82,20 @@ export function ShortlistProvider({ children }: { children: React.ReactNode }) {
           });
         })
         .catch(() => {});
-    prune();
+    };
+    // fora do caminho crítico (e depois de idsRef refletir o localStorage)
+    const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
+    const handle = ric ? ric(prune) : window.setTimeout(prune, 1200);
     const off = onPlayersInvalidated(prune);
     return () => {
       alive = false;
+      if (ric) (window as any).cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
       off();
     };
   }, [user]);
 
   const has = useCallback((id: string) => ids.includes(id), [ids]);
-
-  // Ref com a lista mais recente: toggles rápidos não leem estado velho, e o
-  // aviso (outro componente) é disparado fora do updater do setState.
-  const idsRef = useRef<string[]>([]);
-  useEffect(() => {
-    idsRef.current = ids;
-  }, [ids]);
 
   const toggle = useCallback(
     (id: string, nome?: string) => {

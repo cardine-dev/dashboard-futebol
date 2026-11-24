@@ -69,8 +69,9 @@ function SendAnimatedButton({
       onClick={onClick}
       disabled={disabled || !!loading}
       title={t.baseAi.enviar}
+      aria-label={loading ? t.baseAi.enviando : t.baseAi.enviar}
       className={cn(
-        "scoutai-send-btn group relative inline-flex h-11 items-center gap-2 overflow-hidden rounded-2xl border px-4 text-sm font-semibold shadow-sm transition active:scale-[0.98]",
+        "scoutai-send-btn group relative inline-flex h-11 items-center gap-2 overflow-hidden rounded-2xl border px-3 sm:px-4 text-sm font-semibold shadow-sm transition active:scale-[0.98]",
         disabled || loading
           ? "cursor-not-allowed opacity-60"
           : "cursor-pointer",
@@ -102,7 +103,8 @@ function SendAnimatedButton({
           )}
         </span>
       </span>
-      <span className="scoutai-send-text block">
+      {/* No celular o botão fica só com o ícone: o espaço vai para o campo de texto. */}
+      <span className="scoutai-send-text hidden sm:block">
         {loading ? t.baseAi.enviando : t.baseAi.enviar}
       </span>
       {!disabled && !loading ? (
@@ -891,7 +893,8 @@ export default function BaseChatPage() {
                   </div>
                 )}
 
-                <div className="flex items-end gap-2">
+                {/* Celular: campo de texto numa linha inteira, botões embaixo. */}
+                <div className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
                   <div className="relative shrink-0">
                     <button
                       ref={plusButtonRef}
@@ -985,7 +988,7 @@ export default function BaseChatPage() {
                     />
                   </button>
 
-                  <div className="min-w-0 flex-1 surface">
+                  <div className="order-first min-w-0 basis-full surface sm:order-none sm:flex-1 sm:basis-0">
                     <textarea
                       ref={textareaRef}
                       value={input}
@@ -1006,7 +1009,7 @@ export default function BaseChatPage() {
                     />
                   </div>
 
-                  <div className="shrink-0">
+                  <div className="ml-auto shrink-0 sm:ml-0">
                     <SendAnimatedButton
                       disabled={!input.trim()}
                       loading={loading}

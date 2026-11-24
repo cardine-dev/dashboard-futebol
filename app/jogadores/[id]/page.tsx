@@ -21,7 +21,6 @@ import { ATRIBUTOS, media, parecidos, perfilDe } from "@/lib/ui/atributos";
 import { corDoSetor } from "@/lib/ui/sector";
 import { dataCurta, eurCompact, eurMi, intlLocale, mesesAte, num } from "@/lib/ui/format";
 
-const PASSPORT_EU = "/assets/passaporte.svg";
 
 function sumStats(all?: Record<string, SeasonStats> | null) {
   const acc = { gols: 0, assistencias: 0, partidas: 0 };
@@ -37,14 +36,16 @@ function sumStats(all?: Record<string, SeasonStats> | null) {
 function toYoutubeEmbed(url: string | null | undefined) {
   if (!url) return null;
   try {
+    // Só hosts oficiais e id no formato do YouTube: o resultado vira src de <iframe>.
     const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
-    if (u.hostname.includes("youtube.com")) {
-      const v = u.searchParams.get("v");
-      if (v) return `https://www.youtube.com/embed/${v}`;
-      if (u.pathname.startsWith("/embed/")) return url;
-    }
-    return null;
+    const host = u.hostname.replace(/^(www\.|m\.)/, "");
+    const vid =
+      host === "youtu.be"
+        ? u.pathname.slice(1)
+        : host === "youtube.com"
+          ? (u.searchParams.get("v") ?? u.pathname.match(/^\/embed\/([^/]+)/)?.[1])
+          : null;
+    return vid && /^[\w-]{6,20}$/.test(vid) ? `https://www.youtube.com/embed/${vid}` : null;
   } catch {
     return null;
   }
@@ -326,7 +327,7 @@ export default function PlayerDetailPage() {
                   label={t.detail.passaporteUE}
                   value={
                     <span className="inline-flex items-center gap-1.5">
-                      <img src={PASSPORT_EU} alt="" className="h-4 w-4" />
+                      <svg viewBox="0 0 16 16" className="h-4 w-4 shrink-0" aria-hidden><rect width="16" height="16" rx="3" fill="#1f4aa8" /><g fill="#f5c400"><circle cx="12.6" cy="8.0" r=".75" /><circle cx="12.0" cy="10.3" r=".75" /><circle cx="10.3" cy="12.0" r=".75" /><circle cx="8.0" cy="12.6" r=".75" /><circle cx="5.7" cy="12.0" r=".75" /><circle cx="4.0" cy="10.3" r=".75" /><circle cx="3.4" cy="8.0" r=".75" /><circle cx="4.0" cy="5.7" r=".75" /><circle cx="5.7" cy="4.0" r=".75" /><circle cx="8.0" cy="3.4" r=".75" /><circle cx="10.3" cy="4.0" r=".75" /><circle cx="12.0" cy="5.7" r=".75" /></g></svg>
                       {jogador.passaporte.pais}
                     </span>
                   }

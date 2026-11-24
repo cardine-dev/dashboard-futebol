@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { mapPlayerToJogador } from "@/lib/mapPlayerToJogador";
 import { requireUser } from "@/lib/authHelper";
 import { apiError, handleRouteError } from "@/lib/apiError";
+import { PlayerInput, jsonNull } from "@/lib/validation/player";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = PlayerInput.parse(await request.json().catch(() => ({})));
 
     // contrato atual: sem "clube" (string) e sem "variacaoPct"
     const {
@@ -118,6 +119,10 @@ export async function PATCH(
       // FK do clube
       clubeId,
     } = body ?? {};
+
+    if (nome !== undefined && !nome) {
+      return apiError(400, "Preencha o nome do jogador.");
+    }
 
     // (opcional) valida CPF incompleto quando enviado
     if (cpf !== undefined && cpf !== null) {
@@ -179,14 +184,14 @@ export async function PATCH(
       ...(comissao !== undefined && { comissao }),
 
       ...(instagramHandle !== undefined && { instagramHandle }),
-      ...(instagramPosts !== undefined && { instagramPosts }),
+      ...(instagramPosts !== undefined && { instagramPosts: jsonNull(instagramPosts) }),
       ...(xUrl !== undefined && { xUrl }),
       ...(youtubeUrl !== undefined && { youtubeUrl }),
       ...(videoUrl !== undefined && { videoUrl }),
 
-      ...(passaporte !== undefined && { passaporte }),
-      ...(selecao !== undefined && { selecao }),
-      ...(statsPorTemporada !== undefined && { statsPorTemporada }),
+      ...(passaporte !== undefined && { passaporte: jsonNull(passaporte) }),
+      ...(selecao !== undefined && { selecao: jsonNull(selecao) }),
+      ...(statsPorTemporada !== undefined && { statsPorTemporada: jsonNull(statsPorTemporada) }),
     };
 
     // aplica clubeId (com validação)

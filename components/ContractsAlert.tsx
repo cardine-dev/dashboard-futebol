@@ -36,7 +36,21 @@ export default function ContractsAlert() {
       .sort((a, b) => a.m - b.m);
   }, [players]);
 
-  if (players === null || vencendo.length === 0) return null;
+  // Carregando: reserva a mesma altura (mesmo grid de 6 itens) pra o grid abaixo não pular (CLS).
+  if (players === null) {
+    return (
+      <section className="surface p-4 sm:p-5" aria-busy="true" aria-label={c.titulo}>
+        <div className="skeleton h-[18px] w-48 rounded-md" />
+        <div className="skeleton mt-2 h-[14px] w-64 rounded-md" />
+        <ul className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3" aria-hidden>
+          {Array.from({ length: 6 }, (_, i) => (
+            <li key={i} className="skeleton h-[54px] rounded-[12px]" />
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  if (vencendo.length === 0) return null;
 
   const valor = vencendo.reduce((s, x) => s + (Number(x.p.valorMercado) || 0), 0);
 

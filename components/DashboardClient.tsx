@@ -178,12 +178,15 @@ export function DashboardClient() {
       }
     };
 
-    enabledIds.forEach((id) => void loadOne(id));
+    // Depende só da chave (string): restaurar o layout ou trocar o idioma gera um array
+    // novo com os mesmos ids e, antes, abortava e refazia os 4 widgets.
+    (enabledIdsKey ? (enabledIdsKey.split("|") as WidgetId[]) : []).forEach((id) => void loadOne(id));
 
     return () => {
       controllers.forEach((c) => c.abort());
     };
-  }, [dataScope, enabledIdsKey, enabledIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataScope, enabledIdsKey]);
 
   // ---------- preset change (Header) ----------
   const handleViewChange = useCallback((view: DashboardView) => {

@@ -5,9 +5,16 @@ import type {
   WidgetApiResponse,
   WidgetSize,
 } from "@/type/dashboard";
-import { WidgetRenderer } from "./WidgetRenderer";
+import dynamic from "next/dynamic";
 import { EmptyState } from "./EmptyState";
 import { useI18n } from "@/contexts/I18nContext";
+
+// recharts (~156 KB gz) fica num chunk à parte: fora da entrada do /dashboard e do prefetch
+// que a sidebar faz em toda rota. O download começa assim que este módulo roda no navegador,
+// em paralelo com o fetch dos dados dos widgets.
+const loadRenderer = () => import("./WidgetRenderer").then((m) => m.WidgetRenderer);
+if (typeof window !== "undefined") void loadRenderer();
+const WidgetRenderer = dynamic(loadRenderer, { ssr: false, loading: () => <Skeleton /> });
 
 type Props = {
   widget: WidgetDefinition;

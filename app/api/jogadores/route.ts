@@ -4,6 +4,7 @@ import { mapPlayerToJogador } from "@/lib/mapPlayerToJogador";
 import type { Jogador } from "@/type/jogador";
 import { requireUser } from "@/lib/authHelper";
 import { apiError, handleRouteError } from "@/lib/apiError";
+import { PlayerInput, jsonNull } from "@/lib/validation/player";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = PlayerInput.parse(await req.json().catch(() => ({})));
 
     const nome = String(body?.nome ?? "").trim();
     if (!nome) {
@@ -136,13 +137,13 @@ export async function POST(req: Request) {
       clubeId,
 
       // estruturas
-      statsPorTemporada: body?.statsPorTemporada ?? null,
-      passaporte: body?.passaporte ?? null,
-      selecao: body?.selecao ?? null,
+      statsPorTemporada: jsonNull(body?.statsPorTemporada ?? null),
+      passaporte: jsonNull(body?.passaporte ?? null),
+      selecao: jsonNull(body?.selecao ?? null),
 
       // mídia
       instagramHandle: body?.instagramHandle ?? null,
-      instagramPosts: body?.instagramPosts ?? null,
+      instagramPosts: jsonNull(body?.instagramPosts ?? null),
       xUrl: body?.xUrl ?? null,
       youtubeUrl: body?.youtubeUrl ?? null,
       videoUrl: body?.videoUrl ?? null,

@@ -24,7 +24,10 @@ export function isUniqueError(err: unknown): boolean {
  * ZodError → 400 · P2025 → 404 · P2002 → 409 · resto → 500 genérico.
  */
 export function handleRouteError(err: unknown, context: string, fallback = "Erro interno") {
-  if (err instanceof ZodError) return apiError(400, "Dados inválidos");
+  if (err instanceof ZodError) {
+    const campo = err.issues[0]?.path.join(".");
+    return apiError(400, campo ? `Dados inválidos no campo "${campo}"` : "Dados inválidos");
+  }
   if (isNotFoundError(err)) return apiError(404, "Registro não encontrado");
   if (isUniqueError(err)) return apiError(409, "Registro já existe");
   console.error(`[api] ${context}:`, err);

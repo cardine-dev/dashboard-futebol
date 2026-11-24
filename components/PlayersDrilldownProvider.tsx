@@ -1,5 +1,6 @@
 "use client";
 
+import { getPlayers } from "@/lib/client/playersStore";
 import React, { createContext, useContext, useMemo, useRef, useState } from "react";
 import type { Jogador } from "@/type/jogador";
 import PlayersModal, { type View } from "@/components/PlayersModal";
@@ -77,13 +78,7 @@ export function PlayersDrilldownProvider({ children }: { children: React.ReactNo
     if (!fullFetchPromiseRef.current) {
       fullFetchPromiseRef.current = (async () => {
         try {
-          const res = await fetch("/api/jogadores", { cache: "no-store" });
-          const json = await res.json();
-          const arr: any[] = Array.isArray(json)
-            ? json
-            : Array.isArray(json?.jogadores)
-              ? json.jogadores
-              : [];
+          const arr: any[] = await getPlayers();
           const m = new Map<string, Jogador>();
           for (const raw of arr) {
             const j = normalizeJogadorAny(raw);

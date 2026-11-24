@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import PageTitle from "@/components/Atoms/PageTitle";
-import AdminRow from "@/components/AdminRow";
+import AdminRow, { AdminRowHeader } from "@/components/AdminRow";
 import AdminButton from "@/components/Atoms/AdminButton";
 import ConfirmDeleteDialog from "@/components/Atoms/ConfirmDeleteDialog";
 import CopySecretDialog from "@/components/Atoms/CopySecretDialog";
@@ -124,12 +124,6 @@ export default function AdminUsersPage() {
     }
   }, [user, loading, router]);
 
-  // Carregar usuários
-  useEffect(() => {
-    if (user?.role === "ADMIN") loadUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
   // sempre que abrir o modal, gera senha automática
   useEffect(() => {
     if (showCreateModal) {
@@ -161,6 +155,12 @@ export default function AdminUsersPage() {
       setIsLoadingUsers(false);
     }
   }
+
+  // Carregar usuários
+  useEffect(() => {
+    if (user?.role === "ADMIN") loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
@@ -362,13 +362,7 @@ export default function AdminUsersPage() {
       )}
 
       <div className="overflow-hidden surface">
-        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-slate-700">
-          <span />
-          <span>{t.adminUsuarios.usuario}</span>
-          <span>{t.adminUsuarios.criadoEm}</span>
-          <span />
-          <span className="pr-1 text-right">{t.adminUsuarios.acoes}</span>
-        </div>
+        <AdminRowHeader title={t.adminUsuarios.usuario} col3={t.adminUsuarios.criadoEm} actions={t.adminUsuarios.acoes} />
 
         {isLoadingUsers ? (
           <div className="py-10 text-center text-gray-500">{t.adminUsuarios.carregando}</div>

@@ -32,13 +32,31 @@ const ROLE_LABEL: Record<NonNullable<Action["color"]>, string> = {
   red: "Excluir",
 };
 
+// Cabeçalho e linha usam a mesma grade. No celular ficam avatar, nome e ações:
+// as colunas de apoio (data, local) somem para o nome não ser cortado.
+const GRID =
+  "grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 px-3 sm:grid-cols-[48px_minmax(0,1.6fr)_1fr_1fr_auto]";
+
+/** Cabeçalho da listagem do admin, alinhado às colunas de `AdminRow`. */
+export function AdminRowHeader({ title, col3, col4, actions }: { title: string; col3?: string; col4?: string; actions: string }) {
+  return (
+    <div className={clsx(GRID, "border-b border-[var(--hairline)] bg-[var(--surface-2)] py-3 text-xs font-semibold text-gray-600")}>
+      <span />
+      <span>{title}</span>
+      <span className="hidden sm:block">{col3}</span>
+      <span className="hidden sm:block">{col4}</span>
+      <span className="pr-1 text-right">{actions}</span>
+    </div>
+  );
+}
+
 /**
  * Linha de listagem do admin. Ações em botões de ícone neutros: a cor só
  * aparece no hover, e vermelho fica reservado para excluir.
  */
 export default function AdminRow({ foto, title, subtitle, createdAt, actions = [], posicao, extra }: AdminRowProps) {
   return (
-    <div className="group grid grid-cols-[48px_1.6fr_1fr_1fr_auto] items-center gap-2 border-b border-[var(--hairline)] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]">
+    <div className={clsx(GRID, "group border-b border-[var(--hairline)] py-2.5 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]")}>
       <div className="flex items-center justify-center">
         <PlayerAvatar nome={title} posicao={posicao ?? null} imagemUrl={foto} size={36} />
       </div>
@@ -48,9 +66,9 @@ export default function AdminRow({ foto, title, subtitle, createdAt, actions = [
         {subtitle && <span className="truncate text-xs text-gray-500">{subtitle}</span>}
       </div>
 
-      <div className="num text-[13px] text-gray-600">{createdAt ?? "—"}</div>
+      <div className="num hidden text-[13px] text-gray-600 sm:block">{createdAt ?? "—"}</div>
 
-      <div className="num text-[13px] text-gray-600">{extra}</div>
+      <div className="num hidden text-[13px] text-gray-600 sm:block">{extra}</div>
 
       <div className="flex items-center justify-end gap-1 pr-1">
         {actions.map((a, i) => {
@@ -63,7 +81,7 @@ export default function AdminRow({ foto, title, subtitle, createdAt, actions = [
 
           if (a.href) {
             return (
-              <Link key={i} href={a.href} className={className} aria-label={label} title={label}>
+              <Link key={i} href={a.href} prefetch={false} className={className} aria-label={label} title={label}>
                 <a.icon size={16} />
               </Link>
             );

@@ -10,7 +10,7 @@ import HoverTooltip, { type TipMeta } from "./HoverTooltip";
 import MapCanvas from "./MapCanvas";
 
 import type { ContinentCode, Mode } from "./geoAdapters";
-import { buildNameToISO2, MAP_DATA } from "./geoAdapters";
+import { buildNameToISO2, loadTopology } from "./geoAdapters";
 import { useFitProjection } from "./useFitProjection";
 import { COUNTRY_OPTIONS } from "@/lib/dashboard/geoOptions";
 import { usePlayersDrilldown } from "@/components/PlayersDrilldownProvider";
@@ -100,8 +100,18 @@ export default function GeoMapWidget({ data, size = "md" }: Props) {
     return s;
   }, [byUF]);
 
-  // FC vem do import (sem fetch)
-  const fc = useMemo(() => MAP_DATA[mode], [mode]);
+  // Topologia do modo atual, baixada sob demanda (cache por modo em geoAdapters)
+  const [topo, setTopo] = useState<{ mode: Mode; data: any } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadTopology(mode)
+      .then((data) => alive && setTopo({ mode, data }))
+      .catch(() => alive && setTopo({ mode, data: null }));
+    return () => {
+      alive = false;
+    };
+  }, [mode]);
+  const fc = topo?.mode === mode ? topo.data : null;
 
   // projeção usa FC
   const projection = useFitProjection(ready, mode, box, fc);
@@ -263,6 +273,7 @@ export default function GeoMapWidget({ data, size = "md" }: Props) {
           {!ready || !projection || !fc ? null : (
             <MapCanvas
               mode={mode}
+              geoData={fc}
               box={box}
               projection={projection}
               byCountry={byCountry}

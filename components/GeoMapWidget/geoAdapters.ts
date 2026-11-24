@@ -2,36 +2,41 @@ export type ContinentCode = "SA" | "NA" | "EU" | "AF" | "AS" | "OC";
 export type Mode = "WORLD" | ContinentCode | "BR";
 
 // -------------------------
-//  MAP DATA (JSON importado)
+//  MAP DATA (sob demanda)
 // -------------------------
-import worldContinents from "public/maps/world-continents.json";
+// As topologias (2 MB de fonte) ficam em public/maps e só baixam quando o mapa aparece,
+// uma vez por modo. Antes iam no bundle do /dashboard (+93 KB gz) e no prefetch das outras rotas.
+const MAP_URL: Record<Mode, string> = {
+  WORLD: "/maps/world-continents.json",
+  SA: "/maps/continents/south-america.json",
+  NA: "/maps/continents/north-america.json",
+  EU: "/maps/continents/europe.json",
+  AF: "/maps/continents/africa.json",
+  AS: "/maps/continents/asia.json",
+  OC: "/maps/continents/oceania.json",
+  BR: "/maps/brazil/br-states.json",
+};
 
-import africa from "public/maps/continents/africa.json";
-import asia from "public/maps/continents/asia.json";
-import europe from "public/maps/continents/europe.json";
-import northAmerica from "public/maps/continents/north-america.json";
-import oceania from "public/maps/continents/oceania.json";
-import southAmerica from "public/maps/continents/south-america.json";
+const topoCache = new Map<Mode, Promise<any>>();
 
-import brStates from "public/maps/brazil/br-states.json";
+export function loadTopology(mode: Mode): Promise<any> {
+  let p = topoCache.get(mode);
+  if (!p) {
+    p = fetch(MAP_URL[mode]).then((r) => {
+      if (!r.ok) throw new Error(`mapa ${mode}: HTTP ${r.status}`);
+      return r.json();
+    });
+    p.catch(() => topoCache.delete(mode)); // falhou: tenta de novo na próxima
+    topoCache.set(mode, p);
+  }
+  return p;
+}
 
 // -------------------------
 //  OPTIONS (fonte de nomes PT)
 // -------------------------
 import { COUNTRY_OPTIONS, BR_STATES } from "@/lib/dashboard/geoOptions";
 
-export const MAP_DATA: Record<Mode, any> = {
-  WORLD: worldContinents,
-
-  SA: southAmerica,
-  NA: northAmerica,
-  EU: europe,
-  AF: africa,
-  AS: asia,
-  OC: oceania,
-
-  BR: brStates,
-};
 
 // -------------------------
 // utils

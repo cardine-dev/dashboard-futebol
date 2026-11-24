@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Trash, PlusCircle } from "lucide-react";
 
 import PageTitle from "@/components/Atoms/PageTitle";
-import AdminRow from "@/components/AdminRow";
+import AdminRow, { AdminRowHeader } from "@/components/AdminRow";
 import AdminButton from "@/components/Atoms/AdminButton";
 import ConfirmDeleteDialog from "@/components/Atoms/ConfirmDeleteDialog";
 import { useI18n } from "@/contexts/I18nContext";
-import { invalidatePlayers } from "@/lib/client/playersStore";
+import { getPlayers, invalidatePlayers } from "@/lib/client/playersStore";
 import { useToast } from "@/components/ui/Toast";
 
 function formatCreatedAt(input: any) {
@@ -37,11 +37,7 @@ export default function AdminJogadoresPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/jogadores", { cache: "no-store" });
-        if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
-
-        const raw = await res.json();
-        const lista = Array.isArray(raw?.jogadores) ? raw.jogadores : Array.isArray(raw) ? raw : [];
+        const lista = await getPlayers();
 
         if (active) setJogadores(lista);
       } catch (e: any) {
@@ -125,13 +121,7 @@ export default function AdminJogadoresPage() {
 
       <div className="overflow-hidden surface">
         {/* Cabeçalho */}
-        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-slate-700">
-          <span />
-          <span>{t.adminJogadores.jogador}</span>
-          <span>{t.adminJogadores.criadoEm}</span>
-          <span />
-          <span className="pr-1 text-right">{t.adminJogadores.acoes}</span>
-        </div>
+        <AdminRowHeader title={t.adminJogadores.jogador} col3={t.adminJogadores.criadoEm} actions={t.adminJogadores.acoes} />
 
         {/* Linhas */}
         {loading ? (

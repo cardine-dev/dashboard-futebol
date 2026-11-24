@@ -15,12 +15,9 @@
  *   e SetNull (clube → jogadores.clubeId; conversa → relatórios.conversationId)
  * - Transferencia.valor sempre number
  *
- * Estado compartilhado entre rotas (globalThis). Persistência: nenhuma por padrão
- * (reinício volta ao dataset). Com DEMO_PERSIST=true, o estado é salvo em
- * .data/demo-db.json (a pasta ganha um .gitignore próprio com "*").
+ * Estado: um sandbox por navegador (cookie demo_sbx), salvo no Runtime Cache da Vercel
+ * por 12 h — ver lib/demo/sandbox.ts.
  */
-import fs from "node:fs";
-import path from "node:path";
 import {
   users,
   clubs,
@@ -32,24 +29,26 @@ import {
 } from "./dataset";
 import { RAW_QUERY_META_KEY, type RawQueryMeta } from "@/lib/dashboard/sqlTag";
 import type { WidgetFilters } from "@/type/dashboard";
+import { currentTables, inSandbox, markDirty, registerSeed, type Tables } from "./sandbox";
 
 type Row = Record<string, any>;
 
 /**
- * As tabelas vivem no globalThis: o Next empacota cada rota de API separadamente e,
- * sem isso, cada rota teria a sua cópia do "banco" (um jogador criado numa rota não
- * apareceria na listagem de outra). A 1ª rota que carregar o módulo semeia o estado.
+ * As tabelas são as do sandbox da requisição atual (lib/demo/sandbox.ts): cada navegador
+ * tem a sua cópia do dataset, sincronizada entre instâncias pelo Runtime Cache da Vercel.
  */
-const globalForDemo = globalThis as unknown as { __demoTables?: Record<string, Row[]> };
-const tables: Record<string, Row[]> = (globalForDemo.__demoTables ??= {
-  user: users as Row[],
-  club: clubs as Row[],
-  player: players as Row[],
-  transferencia: transferencias as Row[],
-  report: reports as Row[],
-  chatConversation: chatConversations as Row[],
-  chatMessage: chatMessages as Row[],
-});
+registerSeed(() =>
+  structuredClone({
+    user: users as Row[],
+    club: clubs as Row[],
+    player: players as Row[],
+    transferencia: transferencias as Row[],
+    report: reports as Row[],
+    chatConversation: chatConversations as Row[],
+    chatMessage: chatMessages as Row[],
+  }),
+);
+const tables: Tables = new Proxy({} as Tables, { get: (_t, model: string) => currentTables()[model] });
 
 type Rel = { type: "one" | "many"; model: string; fk: string; ref: string };
 const relations: Record<string, Record<string, Rel>> = {
@@ -384,7 +383,7 @@ function makeDelegate(model: string, prefix: string) {
   const rows = () => tables[model];
   const filtered = (where: any) => rows().filter((r) => matchWhere(r, where));
 
-  return {
+  const methods = {
     async findMany(args: any = {}) {
       let res = filtered(args.where);
       if (args.distinct) {
@@ -434,7 +433,7 @@ function makeDelegate(model: string, prefix: string) {
       const conflict = findUniqueConflict(model, row);
       if (conflict) throw prismaError("P2002", `${model}.${conflict} já existe`);
       rows().push(row);
-      schedulePersist();
+      markDirty();
       return projectRow(model, row, args);
     },
     async createMany(args: any) {
@@ -457,7 +456,7 @@ function makeDelegate(model: string, prefix: string) {
         accepted.push(row);
       }
       rows().push(...accepted);
-      if (accepted.length) schedulePersist();
+      if (accepted.length) markDirty();
       return { count: accepted.length };
     },
     async update(args: any) {
@@ -467,13 +466,13 @@ function makeDelegate(model: string, prefix: string) {
       const conflict = findUniqueConflict(model, next, r);
       if (conflict) throw prismaError("P2002", `${model}.${conflict} já existe`);
       Object.assign(r, next, { updatedAt: new Date() });
-      schedulePersist();
+      markDirty();
       return projectRow(model, r, args);
     },
     async updateMany(args: any) {
       const list = filtered(args.where);
       for (const r of list) Object.assign(r, normalizeRow(model, { ...args.data }), { updatedAt: new Date() });
-      if (list.length) schedulePersist();
+      if (list.length) markDirty();
       return { count: list.length };
     },
     async delete(args: any) {
@@ -482,7 +481,7 @@ function makeDelegate(model: string, prefix: string) {
       if (idx < 0) throw prismaError("P2025", `${model} delete: registro não encontrado`);
       const [removed] = arr.splice(idx, 1);
       applyOnDelete(model, [removed]);
-      schedulePersist();
+      markDirty();
       return projectRow(model, removed, args);
     },
     async deleteMany(args: any = {}) {
@@ -493,11 +492,17 @@ function makeDelegate(model: string, prefix: string) {
       }
       if (removed.length) {
         applyOnDelete(model, removed);
-        schedulePersist();
+        markDirty();
       }
       return { count: removed.length };
     },
   };
+  return Object.fromEntries(
+    Object.entries(methods).map(([name, fn]) => [
+      name,
+      (args?: any) => inSandbox<unknown>(() => (fn as (a?: any) => unknown)(args)),
+    ]),
+  ) as unknown as typeof methods;
 }
 
 /* ----------------------------- $queryRaw (por tag) ----------------------------- */
@@ -661,51 +666,6 @@ function handleQueryRaw(query: any): any[] {
   }
 }
 
-/* ----------------------------- persistência opcional ----------------------------- */
-const PERSIST = process.env.DEMO_PERSIST === "true";
-const DATA_DIR = path.join(process.cwd(), ".data");
-const DATA_FILE = path.join(DATA_DIR, "demo-db.json");
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
-
-function loadPersisted() {
-  if (!PERSIST) return;
-  try {
-    if (!fs.existsSync(DATA_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"), (_k, v) =>
-      typeof v === "string" && ISO_DATE.test(v) ? new Date(v) : v,
-    ) as Record<string, Row[]>;
-    for (const [model, list] of Object.entries(raw)) {
-      if (!tables[model] || !Array.isArray(list)) continue;
-      tables[model].splice(0, tables[model].length, ...list);
-    }
-  } catch (err) {
-    console.warn("[mockPrisma] não consegui ler .data/demo-db.json — seguindo com o dataset padrão.", err);
-  }
-}
-
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
-function schedulePersist() {
-  if (!PERSIST) return;
-  if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    try {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-      const ignore = path.join(DATA_DIR, ".gitignore");
-      if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
-      fs.writeFileSync(DATA_FILE, JSON.stringify(tables));
-    } catch (err) {
-      console.warn("[mockPrisma] falha ao salvar .data/demo-db.json", err);
-    }
-  }, 200);
-}
-
-const globalPersist = globalThis as unknown as { __demoPersistLoaded?: boolean };
-if (!globalPersist.__demoPersistLoaded) {
-  globalPersist.__demoPersistLoaded = true;
-  loadPersisted();
-}
-
 /* ----------------------------- client ----------------------------- */
 export const mockPrisma: any = {
   user: makeDelegate("user", "user"),
@@ -716,11 +676,11 @@ export const mockPrisma: any = {
   chatConversation: makeDelegate("chatConversation", "conv"),
   chatMessage: makeDelegate("chatMessage", "msg"),
 
-  async $queryRaw(query: any) {
-    return handleQueryRaw(query);
+  $queryRaw(query: any) {
+    return inSandbox(() => handleQueryRaw(query));
   },
-  async $queryRawUnsafe(query: any) {
-    return handleQueryRaw(query);
+  $queryRawUnsafe(query: any) {
+    return inSandbox(() => handleQueryRaw(query));
   },
   async $executeRaw() {
     return 0;
@@ -729,7 +689,7 @@ export const mockPrisma: any = {
     return 0;
   },
   async $transaction(arg: any) {
-    if (typeof arg === "function") return arg(mockPrisma);
+    if (typeof arg === "function") return inSandbox(() => arg(mockPrisma));
     return Promise.all(arg ?? []);
   },
   async $connect() {},

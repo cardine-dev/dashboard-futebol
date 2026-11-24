@@ -1,5 +1,6 @@
 "use client";
 
+import { getPlayers } from "@/lib/client/playersStore";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 
 import PageTitle from "@/components/Atoms/PageTitle";
@@ -358,16 +359,7 @@ export default function JogadoresPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/jogadores", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ao buscar jogadores`);
-
-        const raw = await res.json();
-
-        const listaApi: any[] = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.jogadores)
-          ? raw.jogadores
-          : [];
+        const listaApi: any[] = await getPlayers();
 
         const normalizado: Jogador[] = listaApi.map((p: any) => {
           const idadeN = safeNumber(p?.idade);

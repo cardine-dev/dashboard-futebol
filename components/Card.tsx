@@ -75,6 +75,7 @@ export default function Card({ player, onClick }: Props) {
           <h3 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-gray-950" title={player.nome}>
             <Link
               href={`/jogadores/${player.id}`}
+              prefetch={false}
               onClick={() => onClick?.(player.id)}
               className="no-underline text-inherit hover:underline underline-offset-2"
               aria-label={`${t.cardAriaVerDetalhes} ${player.nome}`}

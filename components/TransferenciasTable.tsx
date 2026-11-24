@@ -180,7 +180,7 @@ export default function TransferenciasTable() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t.transferenciasTable.buscar}
-          className="input h-10 sm:w-[280px]"
+          className="input h-10 min-w-0 flex-1 sm:w-[280px] sm:flex-none"
         />
 
         <select
@@ -205,7 +205,8 @@ export default function TransferenciasTable() {
           className="input h-10 w-[180px] hidden md:block"
         />
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* No celular as ações ganham linha própria; "Deletar" vira só ícone. */}
+        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
           {/* Import */}
           <ImportTransferenciasCsvButton
             onImported={() => {
@@ -220,6 +221,7 @@ export default function TransferenciasTable() {
             disabled={selectedIds.length === 0}
             onClick={() => setDeleteOpen(true)}
             className="btn btn-ghost h-10 cursor-pointer hover:!text-[var(--bad)]"
+            aria-label={t.transferenciasTable.deletar}
             title={
               selectedIds.length === 0
                 ? t.transferenciasTable.selecionePeloMenos
@@ -227,16 +229,16 @@ export default function TransferenciasTable() {
             }
           >
             <Trash2 className="w-4 h-4" />
-            {t.transferenciasTable.deletar}
+            <span className="hidden sm:inline">{t.transferenciasTable.deletar}</span>
             {selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
           </button>
 
           {/* status / page size */}
-          <div className="flex items-center gap-3 pl-2">
+          <div className="ml-auto flex items-center gap-3 sm:ml-0 sm:pl-2">
             {error ? (
               <span className="text-sm text-red-500">{error}</span>
             ) : (
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm whitespace-nowrap text-muted-foreground">
                 {loading ? t.transferenciasTable.carregando : `${total} ${t.transferenciasTable.registros}`}
               </span>
             )}
@@ -244,7 +246,8 @@ export default function TransferenciasTable() {
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="input h-10 w-auto cursor-pointer"
+              className="input hidden h-10 w-auto cursor-pointer sm:block"
+              aria-label={t.transferenciasTable.registros}
             >
               <option value={25}>25</option>
               <option value={50}>50</option>

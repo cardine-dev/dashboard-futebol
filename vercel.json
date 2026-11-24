@@ -1,4 +1,7 @@
 {
+  "regions": [
+    "gru1"
+  ],
   "functions": {
     "app/api/chatbot/chat/route.ts": {
       "maxDuration": 150

@@ -306,7 +306,7 @@ export default function ImportTransferenciasCsvButton({
           resetState();
           setOpen(true);
         }}
-        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border bg-white text-slate-900 shadow-sm hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
+        className="btn btn-ghost h-10 whitespace-nowrap cursor-pointer"
       >
         <Upload className="w-4 h-4" />
         {t.importCsv.importarCsv}

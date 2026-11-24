@@ -8,7 +8,6 @@ import type { GeoProjection } from "d3-geo";
 
 import type { ContinentCode, Mode } from "./geoAdapters";
 import {
-  MAP_DATA,
   getContinentCodeFromGeo,
   getISO2FromCountryGeo,
   getCountryLabel,
@@ -19,6 +18,7 @@ import {
 
 type Props = {
   mode: Mode;
+  geoData: any;
   box: { w: number; h: number };
   projection: GeoProjection;
 
@@ -78,6 +78,7 @@ export default function MapCanvas(props: Props) {
     mode,
     box,
     projection,
+    geoData,
     byCountry,
     byUF,
     countriesWithPlayers,
@@ -92,7 +93,6 @@ export default function MapCanvas(props: Props) {
     onSelectUF,
   } = props;
 
-  const geoData = MAP_DATA[mode];
   const maxCountry = Math.max(0, ...Object.values(byCountry ?? {}));
   const maxUF = Math.max(0, ...Object.values(byUF ?? {}));
 

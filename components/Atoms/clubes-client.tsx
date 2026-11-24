@@ -4,7 +4,7 @@ import * as React from "react";
 import { Pencil, Trash, PlusCircle } from "lucide-react";
 
 import PageTitle from "@/components/Atoms/PageTitle";
-import AdminRow from "@/components/AdminRow";
+import AdminRow, { AdminRowHeader } from "@/components/AdminRow";
 import AdminButton from "@/components/Atoms/AdminButton";
 import ConfirmDeleteDialog from "@/components/Atoms/ConfirmDeleteDialog";
 import { useI18n } from "@/contexts/I18nContext";
@@ -91,13 +91,7 @@ export default function ClubesClient({ initialClubs }: { initialClubs: ClubRow[]
 
       <div className="overflow-hidden surface">
         {/* Head */}
-        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-slate-700">
-          <span />
-          <span>{t.adminClubes.clube}</span>
-          <span>{t.adminClubes.local}</span>
-          <span>{t.adminClubes.criadoEm}</span>
-          <span className="pr-1 text-right">{t.adminClubes.acoes}</span>
-        </div>
+        <AdminRowHeader title={t.adminClubes.clube} col3={t.adminClubes.local} col4={t.adminClubes.criadoEm} actions={t.adminClubes.acoes} />
 
         {/* Rows */}
         <div className="divide-y divide-gray-100">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_COOKIE, verifySessionToken } from "@/lib/jwt";
+import { SANDBOX_COOKIE, isDemoEnv, newSandboxId, sandboxCookieOptions } from "@/lib/demo/sandboxCookie";
 
 const COOKIE_NAME = AUTH_COOKIE;
 
@@ -13,7 +14,7 @@ const ADMIN_PREFIX = "/admin";
 
 // Coisas que sempre passam. /api fica fora daqui de propósito: cada handler
 // faz a própria checagem com requireUser() (lib/authHelper.ts) e responde 401/403 em JSON.
-const ALWAYS_ALLOW_PREFIXES = ["/_next", "/api", "/assets"];
+const ALWAYS_ALLOW_PREFIXES = ["/_next/", "/api/", "/assets/"];
 const ALWAYS_ALLOW_EXACT = ["/favicon.ico", "/robots.txt", "/sitemap.xml"];
 
 // Mantém compatibilidade: “qualquer path com ponto” era liberado antes.
@@ -120,10 +121,16 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  return NextResponse.next();
+  // Demo: sessão logada sem sandbox (login anterior ao sandbox, cookie expirado) ganha um,
+  // senão as escritas cairiam numa cópia descartável e sumiriam.
+  const res = NextResponse.next();
+  if (isDemoEnv() && !req.cookies.get(SANDBOX_COOKIE)?.value) {
+    res.cookies.set(SANDBOX_COOKIE, newSandboxId(), sandboxCookieOptions());
+  }
+  return res;
 }
 
 export const config = {
   // Mantém sua ideia original: proxy não roda em /api, _next, assets, etc.
-  matcher: ["/((?!api|_next|assets|favicon.ico|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!api/|_next/|assets/|favicon.ico|robots.txt|sitemap.xml).*)"],
 };
