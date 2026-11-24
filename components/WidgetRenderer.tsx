@@ -6,6 +6,8 @@ import GeoMapWidget from "./GeoMapWidget";
 import {
   BarChart,
   Bar,
+  Cell,
+  LabelList,
   LineChart,
   Line,
   ScatterChart,
@@ -17,15 +19,17 @@ import {
   CartesianGrid,
 } from "recharts";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
 
 import { formatCurrency, formatMoneyAxis, formatNumber } from "@/lib/dashboard/format";
 import { usePlayersDrilldown } from "@/components/PlayersDrilldownProvider";
+import { SETORES, SETOR_COR, setorDe, INK_SERIE, GRID, AXIS_TEXT } from "@/lib/ui/sector";
+import { eurCompact, intlLocale } from "@/lib/ui/format";
 
-
-const BASE_COLOR = "#334155";
-const MARKET_COLOR = "#475569";
+/** Série do clube = acento do clube; mercado = cinza neutro. */
+const BASE_COLOR = "var(--accent)";
+const MARKET_COLOR = "#a7b0ab";
 
 /* ==============================
    Types
@@ -199,7 +203,6 @@ function makePrettifyPosicao(t: any) {
 
 // Module-level defaults for non-component contexts
 const prettifyKey = makePrettifyKey(null);
-const prettifyPosicao = makePrettifyPosicao(null);
 
 function makePrettifyXValue(t: any) {
   const lPrettifyPosicao = makePrettifyPosicao(t);
@@ -247,8 +250,8 @@ const pickLabelKey = (sample: Record<string, any>) => {
   const preferred = [
     "period",
     "faixa",
-    "posicao",
     "jogador",
+    "posicao",
     "clube",
     "agencia",
     "label",
@@ -301,26 +304,92 @@ const extractDrill = (payload: any) => {
 };
 
 /* ==============================
-   Legend (custom)
+   Peças compartilhadas
 ============================== */
 
-function LegendRow({
-  items,
-}: {
-  items: Array<{ label: string; color: string }>;
-}) {
-  if (!items.length) return null;
+const ANIM = { isAnimationActive: true, animationDuration: 650, animationEasing: "ease-out" as const };
+
+const axisProps = {
+  tick: { fontSize: 11.5, fill: AXIS_TEXT },
+  tickLine: false,
+  axisLine: false,
+};
+
+/**
+ * Só monta o gráfico depois que o container tem tamanho real. Evita o
+ * warning "width(-1) and height(-1)" do recharts e o salto do primeiro frame.
+ */
+function ChartBox({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dim, setDim] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setDim((d) => d ?? { width: Math.floor(r.width), height: Math.floor(r.height) });
+      }
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
-      <div className="mt-2 mb-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-600">
+    <div ref={ref} className="h-full w-full min-h-0 min-w-0">
+      {dim ? (
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={dim}>
+          {children as any}
+        </ResponsiveContainer>
+      ) : null}
+    </div>
+  );
+}
+
+/** Tooltip escuro, igual aos avisos do produto. */
+function NightTooltip({
+  active,
+  payload,
+  label,
+  labelFormatter,
+  valueFormatter,
+}: any) {
+  if (!active || !payload?.length) return null;
+  const title = labelFormatter ? labelFormatter(label, payload) : label;
+  return (
+    <div className="min-w-[160px] rounded-[10px] bg-[var(--night-0)] px-3 py-2.5 text-xs text-white shadow-[var(--shadow-3)] ring-1 ring-white/10">
+      {title ? <p className="mb-1.5 font-medium text-white">{title}</p> : null}
+      <ul className="space-y-1">
+        {payload.map((p: any, i: number) => {
+          const [v, name] = valueFormatter ? valueFormatter(p.value, p.name ?? p.dataKey, p) : [p.value, p.name];
+          const color = p.payload?.__color ?? p.color ?? p.fill;
+          return (
+            <li key={i} className="flex items-center justify-between gap-4">
+              <span className="inline-flex items-center gap-2 text-white/70">
+                <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                {name}
+              </span>
+              <span className="num text-white">{v}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function LegendRow({ items }: { items: Array<{ label: string; color: string }> }) {
+  if (!items.length) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-gray-600">
       {items.map((it) => (
-        <div key={it.label} className="inline-flex items-center gap-2">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: it.color }}
-          />
-          <span>{it.label}</span>
-        </div>
+        <span key={it.label} className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: it.color }} />
+          {it.label}
+        </span>
       ))}
     </div>
   );
@@ -328,14 +397,12 @@ function LegendRow({
 
 function getBarColorForKey(key: string, fallbackIndex: number) {
   const k = key.toLowerCase();
-
-  // comparativos (prioridade)
   if (k.includes("base")) return BASE_COLOR;
   if (k.includes("market")) return MARKET_COLOR;
-
-  // resto: ciclo simples (não inventa paleta)
-  return fallbackIndex % 2 === 0 ? BASE_COLOR : MARKET_COLOR;
+  return fallbackIndex % 2 === 0 ? INK_SERIE : MARKET_COLOR;
 }
+
+const NAME_KEYS = new Set(["jogador", "clube", "agencia", "compradores", "vendedores", "pais", "liga", "label"]);
 
 /* ==============================
    BAR TOGGLE
@@ -350,39 +417,26 @@ function BarToggleWidget({
   defaultId?: string;
   size: WidgetSize;
 }) {
-  const safeDefault =
-    defaultId && options.some((o) => o.id === defaultId) ? defaultId : options[0]?.id;
+  // "Idade" lê melhor que "Ano de nascimento" como visão inicial
+  const preferred =
+    options.find((o) => /idade|age|edad/i.test(o.label))?.id ??
+    (defaultId && options.some((o) => o.id === defaultId) ? defaultId : options[0]?.id);
 
-  const [active, setActive] = useState<string>(safeDefault);
+  const [active, setActive] = useState<string>(preferred);
   const current = options.find((o) => o.id === active) ?? options[0];
   if (!current) return null;
 
   return (
-    <div className="h-full w-full min-w-0 min-h-0 flex flex-col gap-2">
-      <div className="inline-flex w-fit rounded-lg border border-slate-200 bg-white p-1">
-        {options.map((opt) => {
-          const isActive = opt.id === active;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setActive(opt.id)}
-              className={[
-                "rounded-md px-3 py-1.5 text-xs transition",
-                isActive
-                  ? "text-white"
-                  : "text-slate-700 hover:bg-slate-50",
-              ].join(" ")}
-              style={isActive ? { backgroundColor: BASE_COLOR } : undefined}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+    <div className="flex h-full w-full min-h-0 min-w-0 flex-col gap-2">
+      <div className="seg w-fit" role="group">
+        {options.map((opt) => (
+          <button key={opt.id} type="button" onClick={() => setActive(opt.id)} aria-pressed={opt.id === active}>
+            {opt.label}
+          </button>
+        ))}
       </div>
-
-      <div className="flex-1 min-h-0 min-w-0">
-        <BarWidget data={current.data} size={size} />
+      <div className="min-h-0 min-w-0 flex-1">
+        <BarWidget key={current.id} data={current.data} size={size} />
       </div>
     </div>
   );
@@ -393,166 +447,171 @@ function BarToggleWidget({
 ============================== */
 
 function BarWidget({ data, size }: { data: any[]; size: WidgetSize }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const L = intlLocale(locale);
   const lPrettifyKey = useMemo(() => makePrettifyKey(t), [t]);
-  const lPrettifyPosicao = useMemo(() => makePrettifyPosicao(t), [t]);
   const lPrettifyXValue = useMemo(() => makePrettifyXValue(t), [t]);
   const drill = usePlayersDrilldown();
-  if (!data?.length) return null;
 
-  const sample = data[0] ?? {};
-  const labelKey = pickLabelKey(sample);
-  const numericKeys = pickNumericKeys(sample);
-  if (!numericKeys.length) return null;
+  const rows = data ?? [];
+  const sample = rows[0] ?? {};
+  const labelKey = rows.length ? pickLabelKey(sample) : "label";
+  const numericKeys = rows.length ? pickNumericKeys(sample) : [];
+  const yearTicks = buildYearTicksFromPeriod(rows, labelKey);
 
-  const yearTicks = buildYearTicksFromPeriod(data, labelKey);
-
-  // dual axis: dinheiro + count
   const moneyKeys = numericKeys.filter(shouldTreatAsMoney);
   const countKeys = numericKeys.filter((k) => !shouldTreatAsMoney(k));
+  // Dois eixos y enganam (dataviz): com dinheiro + contagem, mostra só o dinheiro.
+  const series = moneyKeys.length === 1 && countKeys.length === 1 && numericKeys.length === 2 ? moneyKeys : numericKeys;
 
-  const canDualAxis =
-    moneyKeys.length === 1 && countKeys.length === 1 && numericKeys.length === 2;
+  const bySector = series.length === 1 && (labelKey === "posicao" || "posicao" in sample);
+  const horizontal = NAME_KEYS.has(labelKey) && rows.length <= 15 && series.length === 1;
 
-  const rotateLabels = labelKey !== "period" && data.length <= 14;
-  const xTickProps = rotateLabels
-    ? { angle: -25, textAnchor: "end" as const, height: 60 }
-    : undefined;
+  const colored = useMemo(
+    () =>
+      rows.map((r) => ({
+        ...r,
+        __color: bySector ? SETOR_COR[setorDe(r.posicao ?? r[labelKey])] : getBarColorForKey(series[0] ?? "", 0),
+      })),
+    [rows, bySector, labelKey, series],
+  );
 
-  const yLeftWidth = canDualAxis
-    ? 120
-    : numericKeys.some(shouldTreatAsMoney)
-      ? 120
-      : 60;
-
-  const yRightWidth = canDualAxis ? 72 : 0;
-
-  const onBarClick = useMemo(() => {
-    return (barEvent: any) => {
-      const point = barEvent?.payload ?? barEvent;
-      const drillInfo = extractDrill(point);
-      if (!drillInfo) return;
-
-      const title = buildTitleFromPoint(labelKey, point, t.chartLabels.jogadores, lPrettifyKey, lPrettifyXValue);
-
-      if (drillInfo.kind === "ids") {
-        void drill.openFromIds(title, drillInfo.ids);
-        return;
-      }
-      void drill.openFromRaw(title, drillInfo.players);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drill, labelKey]);
-
-  // legenda: sempre que tiver 2 séries ou dual axis
   const legendItems = useMemo(() => {
-    if (canDualAxis) {
-      const leftKey = moneyKeys[0];
-      const rightKey = countKeys[0];
-
-      return [
-        { label: lPrettifyKey(leftKey), color: getBarColorForKey(leftKey, 0) },
-        { label: lPrettifyKey(rightKey), color: getBarColorForKey(rightKey, 1) },
-      ];
+    if (bySector) {
+      const present = new Set(rows.map((r) => setorDe(r.posicao ?? r[labelKey])));
+      const cp = (t as any).chartPositions ?? {};
+      const names: Record<string, string> = {
+        GOL: cp.GOL ?? "Goleiros",
+        DEF: (t as any).ui?.sector?.DEF ?? "Defesa",
+        MEI: (t as any).ui?.sector?.MEI ?? "Meio-campo",
+        ATA: (t as any).ui?.sector?.ATA ?? "Ataque",
+      };
+      return SETORES.filter((s) => present.has(s)).map((s) => ({ label: names[s], color: SETOR_COR[s] }));
     }
+    if (series.length <= 1) return [];
+    return series.map((k, i) => ({ label: lPrettifyKey(k), color: getBarColorForKey(k, i) }));
+  }, [bySector, rows, labelKey, series, lPrettifyKey, t]);
 
-    if (numericKeys.length <= 1) return [];
-    return numericKeys.map((k, i) => ({
-      label: lPrettifyKey(k),
-      color: getBarColorForKey(k, i),
-    }));
-  }, [canDualAxis, moneyKeys, countKeys, numericKeys, lPrettifyKey]);
+  const onBarClick = (barEvent: any) => {
+    const point = barEvent?.payload ?? barEvent;
+    const drillInfo = extractDrill(point);
+    if (!drillInfo) return;
+    const title = buildTitleFromPoint(labelKey, point, t.chartLabels.jogadores, lPrettifyKey, lPrettifyXValue);
+    if (drillInfo.kind === "ids") void drill.openFromIds(title, drillInfo.ids);
+    else void drill.openFromRaw(title, drillInfo.players);
+  };
 
-  void size;
+  if (!rows.length || !series.length) return null;
+
+  const fmtVal = (v: any, key: string) =>
+    shouldTreatAsMoney(key) && isFiniteNumber(v) ? eurCompact(v, L) : formatByKey(v, key);
+
+  const tooltip = (
+    <Tooltip
+      cursor={{ fill: "var(--hover-tint)" }}
+      content={
+        <NightTooltip
+          labelFormatter={(l: any) => lPrettifyXValue(labelKey, l)}
+          valueFormatter={(v: any, name: any) => [fmtVal(v, String(name)), lPrettifyKey(String(name))]}
+        />
+      }
+    />
+  );
+
+  const clickable = colored.some((r) => extractDrill(r));
+
+  if (horizontal) {
+    const key = series[0];
+    return (
+      <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
+        <div className="min-h-0 min-w-0 flex-1">
+          <ChartBox>
+            <BarChart data={colored} layout="vertical" margin={{ top: 4, right: 76, bottom: 4, left: 4 }} barCategoryGap="22%">
+              <CartesianGrid horizontal={false} stroke={GRID} />
+              <XAxis type="number" hide domain={[0, (max: number) => max * 1.04]} />
+              <YAxis
+                type="category"
+                dataKey={labelKey}
+                width={size === "sm" ? 110 : 150}
+                {...axisProps}
+                tick={{ fontSize: 12, fill: "#3d4843" }}
+                tickFormatter={(v) => {
+                  const s = lPrettifyXValue(labelKey, v);
+                  return s.length > 22 ? s.slice(0, 21) + "…" : s;
+                }}
+              />
+              {tooltip}
+              <Bar
+                dataKey={key}
+                radius={[0, 4, 4, 0]}
+                maxBarSize={20}
+                onClick={onBarClick}
+                cursor={clickable ? "pointer" : undefined}
+                {...ANIM}
+              >
+                {colored.map((r, i) => (
+                  <Cell key={i} fill={r.__color} />
+                ))}
+                <LabelList
+                  dataKey={key}
+                  position="right"
+                  offset={8}
+                  className="num"
+                  style={{ fontSize: 11.5, fill: "#3d4843" }}
+                  formatter={(v: any) => fmtVal(v, key)}
+                />
+              </Bar>
+            </BarChart>
+          </ChartBox>
+        </div>
+        <LegendRow items={legendItems} />
+      </div>
+    );
+  }
+
+  const manyCats = rows.length > 12;
+  const rotate = labelKey !== "period" && rows.length > 6 && !manyCats;
 
   return (
-    <div className="h-full w-full min-w-0 min-h-0 flex flex-col">
-      <div className="flex-1 min-h-0 min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            margin={{
-              top: 10,
-              right: canDualAxis ? 24 : 16,
-              bottom: 10,
-              left: 18,
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-
+    <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
+      <div className="min-h-0 min-w-0 flex-1">
+        <ChartBox>
+          <BarChart data={colored} margin={{ top: 8, right: 8, bottom: rotate ? 8 : 0, left: 0 }} barCategoryGap="24%">
+            <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey={labelKey}
-              tick={{ fontSize: 12 }}
-              interval={yearTicks ? "preserveStartEnd" : 0}
+              {...axisProps}
+              interval={yearTicks ? "preserveStartEnd" : manyCats ? "preserveStartEnd" : 0}
               ticks={yearTicks ?? undefined}
+              minTickGap={manyCats ? 12 : 4}
               tickFormatter={(v) => lPrettifyXValue(labelKey, v)}
-              {...(xTickProps ?? {})}
+              {...(rotate ? { angle: -30, textAnchor: "end" as const, height: 56 } : {})}
             />
-
             <YAxis
-              yAxisId="left"
-              width={yLeftWidth}
-              tick={{ fontSize: 12 }}
-              tickMargin={6}
-              tickFormatter={(v) =>
-                axisTickByKey(v, canDualAxis ? moneyKeys[0] : numericKeys[0])
-              }
+              width={shouldTreatAsMoney(series[0]) ? 64 : 36}
+              {...axisProps}
+              tickFormatter={(v) => (shouldTreatAsMoney(series[0]) ? eurCompact(v, L, 0) : axisTickByKey(v, series[0]))}
             />
-
-            {canDualAxis && (
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                width={yRightWidth}
-                tick={{ fontSize: 12 }}
-                tickMargin={6}
-                tickFormatter={(v) => axisTickByKey(v, countKeys[0])}
-              />
-            )}
-
-            <Tooltip
-              labelFormatter={(l: any) => {
-                const fakePoint = { [labelKey]: l };
-                return buildTitleFromPoint(labelKey, fakePoint, t.chartLabels.jogadores, lPrettifyKey, lPrettifyXValue);
-              }}
-              formatter={(v: any, name: any) => [
-                formatByKey(v, String(name)),
-                lPrettifyKey(String(name)),
-              ]}
-            />
-
-            {canDualAxis ? (
-              <>
-                <Bar
-                  dataKey={moneyKeys[0]}
-                  yAxisId="left"
-                  radius={[4, 4, 0, 0]}
-                  onClick={onBarClick}
-                  fill={getBarColorForKey(moneyKeys[0], 0)}
-                />
-                <Bar
-                  dataKey={countKeys[0]}
-                  yAxisId="right"
-                  radius={[4, 4, 0, 0]}
-                  onClick={onBarClick}
-                  fill={getBarColorForKey(countKeys[0], 1)}
-                />
-              </>
-            ) : (
-              numericKeys.map((k, i) => (
-                <Bar
-                  key={k}
-                  dataKey={k}
-                  radius={[4, 4, 0, 0]}
-                  onClick={onBarClick}
-                  fill={getBarColorForKey(k, i)}
-                />
-              ))
-            )}
+            {tooltip}
+            {series.map((k, i) => (
+              <Bar
+                key={k}
+                dataKey={k}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={28}
+                onClick={onBarClick}
+                cursor={clickable ? "pointer" : undefined}
+                fill={getBarColorForKey(k, i)}
+                {...ANIM}
+              >
+                {bySector || series.length === 1
+                  ? colored.map((r, j) => <Cell key={j} fill={bySector ? r.__color : getBarColorForKey(k, i)} />)
+                  : null}
+              </Bar>
+            ))}
           </BarChart>
-        </ResponsiveContainer>
+        </ChartBox>
       </div>
-
       <LegendRow items={legendItems} />
     </div>
   );
@@ -563,78 +622,78 @@ function BarWidget({ data, size }: { data: any[]; size: WidgetSize }) {
 ============================== */
 
 function LineWidget({ data, size }: { data: any[]; size: WidgetSize }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const L = intlLocale(locale);
   const lPrettifyKey = useMemo(() => makePrettifyKey(t), [t]);
   const lPrettifyXValue = useMemo(() => makePrettifyXValue(t), [t]);
-  if (!data?.length) return null;
 
-  const sample = data[0] ?? {};
-  const labelKey = pickLabelKey(sample);
-  const numericKeys = pickNumericKeys(sample);
-  if (!numericKeys.length) return null;
-
-  const yearTicks = buildYearTicksFromPeriod(data, labelKey);
-
-  const anyMoney = numericKeys.some(shouldTreatAsMoney);
-  const yWidth = anyMoney ? 120 : 60;
+  const rows = data ?? [];
+  const sample = rows[0] ?? {};
+  const labelKey = rows.length ? pickLabelKey(sample) : "period";
+  const numericKeys = rows.length ? pickNumericKeys(sample) : [];
+  const moneyKeys = numericKeys.filter(shouldTreatAsMoney);
+  const countKeys = numericKeys.filter((k) => !shouldTreatAsMoney(k));
+  const series = moneyKeys.length && countKeys.length ? moneyKeys : numericKeys;
+  const yearTicks = buildYearTicksFromPeriod(rows, labelKey);
 
   const legendItems = useMemo(() => {
-    if (numericKeys.length <= 1) return [];
-    return numericKeys.map((k, i) => ({
-      label: lPrettifyKey(k),
-      color: getBarColorForKey(k, i),
-    }));
-  }, [numericKeys]);
+    if (series.length <= 1) return [];
+    return series.map((k, i) => ({ label: lPrettifyKey(k), color: getBarColorForKey(k, i) }));
+  }, [series, lPrettifyKey]);
 
+  if (!rows.length || !series.length) return null;
   void size;
 
-  return (
-    <div className="h-full w-full min-w-0 min-h-0 flex flex-col">
-      <div className="flex-1 min-h-0 min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 16, bottom: 10, left: 18 }}>
-            <CartesianGrid strokeDasharray="3 3" />
+  const money = shouldTreatAsMoney(series[0]);
 
+  return (
+    <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
+      <div className="min-h-0 min-w-0 flex-1">
+        <ChartBox>
+          <LineChart data={rows} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey={labelKey}
-              tick={{ fontSize: 12 }}
+              {...axisProps}
               ticks={yearTicks ?? undefined}
-              interval={yearTicks ? "preserveStartEnd" : undefined}
+              interval={yearTicks ? "preserveStartEnd" : "preserveStartEnd"}
+              minTickGap={16}
               tickFormatter={(v) => lPrettifyXValue(labelKey, v)}
             />
-
             <YAxis
-              width={yWidth}
-              tick={{ fontSize: 12 }}
-              tickMargin={6}
-              tickFormatter={(v) => axisTickByKey(v, numericKeys[0])}
+              width={money ? 64 : 36}
+              {...axisProps}
+              tickFormatter={(v) => (money ? eurCompact(v, L, 0) : axisTickByKey(v, series[0]))}
             />
-
             <Tooltip
-              labelFormatter={(l: any) => {
-                const fakePoint = { [labelKey]: l };
-                return buildTitleFromPoint(labelKey, fakePoint, t.chartLabels.jogadores, lPrettifyKey, lPrettifyXValue);
-              }}
-              formatter={(v: any, name: any) => [
-                formatByKey(v, String(name)),
-                lPrettifyKey(String(name)),
-              ]}
+              cursor={{ stroke: "#c9cfcb", strokeWidth: 1 }}
+              content={
+                <NightTooltip
+                  labelFormatter={(l: any) => lPrettifyXValue(labelKey, l)}
+                  valueFormatter={(v: any, name: any) => [
+                    shouldTreatAsMoney(String(name)) && isFiniteNumber(v) ? eurCompact(v, L) : formatByKey(v, String(name)),
+                    lPrettifyKey(String(name)),
+                  ]}
+                />
+              }
             />
-
-            {numericKeys.map((k, i) => (
+            {series.map((k, i) => (
               <Line
                 key={k}
                 type="monotone"
                 dataKey={k}
                 strokeWidth={2}
                 dot={false}
-                stroke={getBarColorForKey(k, i)}
+                activeDot={{ r: 4.5, strokeWidth: 2, stroke: "#fff" }}
+                stroke={series.length === 1 ? "var(--accent)" : getBarColorForKey(k, i)}
+                strokeLinecap="round"
+                {...ANIM}
+                animationDuration={900}
               />
             ))}
           </LineChart>
-        </ResponsiveContainer>
+        </ChartBox>
       </div>
-
       <LegendRow items={legendItems} />
     </div>
   );
@@ -647,17 +706,11 @@ function LineWidget({ data, size }: { data: any[]; size: WidgetSize }) {
 const buildIntegerTicks = (min: number, max: number, size: WidgetSize) => {
   const lo = Math.floor(min);
   const hi = Math.ceil(max);
-
   const range = hi - lo;
   if (range <= 0) return [lo];
-
-  if (size === "lg" && range <= 18) {
-    return Array.from({ length: range + 1 }, (_, i) => lo + i);
-  }
-
+  if (size === "lg" && range <= 18) return Array.from({ length: range + 1 }, (_, i) => lo + i);
   const maxTicks = size === "sm" ? 6 : size === "md" ? 8 : 10;
   const step = Math.max(1, Math.ceil(range / maxTicks));
-
   const ticks: number[] = [];
   for (let v = lo; v <= hi; v += step) ticks.push(v);
   if (ticks[ticks.length - 1] !== hi) ticks.push(hi);
@@ -665,92 +718,111 @@ const buildIntegerTicks = (min: number, max: number, size: WidgetSize) => {
 };
 
 function ScatterWidget({ data, size }: { data: any[]; size: WidgetSize }) {
-  const { t } = useI18n();
-  const lPrettifyKey = useMemo(() => makePrettifyKey(t), [t]);
+  const { t, locale } = useI18n();
+  const L = intlLocale(locale);
   const drill = usePlayersDrilldown();
-  if (!data?.length) return null;
 
-  const cleaned = data
-    .map((d) => ({
-      ...d,
-      idade: typeof d.idade === "string" ? Number(d.idade) : d.idade,
-      valor: typeof d.valor === "string" ? Number(d.valor) : d.valor,
-    }))
-    .filter((d) => isFiniteNumber(d.idade) && isFiniteNumber(d.valor));
+  const cleaned = useMemo(
+    () =>
+      (data ?? [])
+        .map((d) => ({
+          ...d,
+          idade: typeof d.idade === "string" ? Number(d.idade) : d.idade,
+          valor: typeof d.valor === "string" ? Number(d.valor) : d.valor,
+        }))
+        .filter((d) => isFiniteNumber(d.idade) && isFiniteNumber(d.valor))
+        .map((d) => ({ ...d, __color: d.posicao ? SETOR_COR[setorDe(d.posicao)] : INK_SERIE })),
+    [data],
+  );
+
+  const hasSector = cleaned.some((d) => d.posicao);
+  const groups = useMemo(() => {
+    if (!hasSector) return [{ key: "all", color: INK_SERIE, rows: cleaned }];
+    return SETORES.map((s) => ({ key: s, color: SETOR_COR[s], rows: cleaned.filter((d) => setorDe(d.posicao) === s) })).filter(
+      (g) => g.rows.length,
+    );
+  }, [cleaned, hasSector]);
 
   if (!cleaned.length) return null;
 
   const idades = cleaned.map((d) => d.idade as number);
-  const minIdade = Math.min(...idades);
-  const maxIdade = Math.max(...idades);
-  const idadeTicks = buildIntegerTicks(minIdade - 1, maxIdade + 1, size);
+  const idadeTicks = buildIntegerTicks(Math.min(...idades) - 1, Math.max(...idades) + 1, size);
 
-  const onPointClick = useMemo(() => {
-    return (evt: any) => {
-      const point = evt?.payload ?? evt;
-      const drillInfo = extractDrill(point);
-      if (!drillInfo) return;
+  const onPointClick = (evt: any) => {
+    const point = evt?.payload ?? evt;
+    const drillInfo = extractDrill(point);
+    if (!drillInfo) return;
+    const nome = point?.nome ?? point?.jogador ?? point?.label;
+    const title = nome ? `${t.chartLabels.jogador}: ${String(nome)}` : t.chartLabels.jogador;
+    if (drillInfo.kind === "ids") void drill.openFromIds(title, drillInfo.ids);
+    else void drill.openFromRaw(title, drillInfo.players);
+  };
 
-      const nome = point?.nome ?? point?.jogador ?? point?.label;
-      const title = nome ? `${t.chartLabels.jogador}: ${String(nome)}` : t.chartLabels.jogador;
-
-      if (drillInfo.kind === "ids") {
-        void drill.openFromIds(title, drillInfo.ids);
-        return;
-      }
-      void drill.openFromRaw(title, drillInfo.players);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drill]);
+  const cp = (t as any).chartPositions ?? {};
+  const sectorName: Record<string, string> = {
+    GOL: cp.GOL ?? "Goleiros",
+    DEF: (t as any).ui?.sector?.DEF ?? "Defesa",
+    MEI: (t as any).ui?.sector?.MEI ?? "Meio-campo",
+    ATA: (t as any).ui?.sector?.ATA ?? "Ataque",
+  };
 
   return (
-    <div className="h-full w-full min-w-0 min-h-0">
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 10, right: 16, bottom: 10, left: 18 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-
-          <XAxis
-            type="number"
-            dataKey="idade"
-            name={t.chartLabels.idade}
-            tick={{ fontSize: 12 }}
-            allowDecimals={false}
-            ticks={idadeTicks}
-            domain={["dataMin - 1", "dataMax + 1"]}
-          />
-
-          <YAxis
-            type="number"
-            dataKey="valor"
-            name={t.chartLabels.valor}
-            width={120}
-            tick={{ fontSize: 12 }}
-            tickMargin={6}
-            tickFormatter={(v) => formatMoneyAxis(v, "EUR")}
-            domain={["dataMin", "dataMax"]}
-          />
-
-          <Tooltip
-            labelFormatter={() => ""}
-            formatter={(v: any, name: any, p: any) => {
-              const series = String(name);
-              const pretty = series === "valor" ? lPrettifyKey("valor") : lPrettifyKey(series);
-              const formatted =
-                series === "valor" ? formatCurrency(v, "EUR") : formatNumber(v);
-
-              // tenta mostrar quem é o ponto (quando existir label/nome)
-              const point = p?.payload;
-              const who = point?.label ?? point?.nome ?? point?.jogador;
-              if (who && series === "valor") {
-                return [`${formatted} — ${String(who)}`, pretty];
-              }
-              return [formatted, pretty];
-            }}
-          />
-
-          <Scatter data={cleaned} onClick={onPointClick} fill={BASE_COLOR} />
-        </ScatterChart>
-      </ResponsiveContainer>
+    <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
+      <div className="min-h-0 min-w-0 flex-1">
+        <ChartBox>
+          <ScatterChart margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke={GRID} />
+            <XAxis
+              type="number"
+              dataKey="idade"
+              name={t.chartLabels.idade}
+              {...axisProps}
+              allowDecimals={false}
+              ticks={idadeTicks}
+              domain={["dataMin - 1", "dataMax + 1"]}
+            />
+            <YAxis
+              type="number"
+              dataKey="valor"
+              name={t.chartLabels.valor}
+              width={64}
+              {...axisProps}
+              tickFormatter={(v) => eurCompact(v, L, 0)}
+              domain={[0, "dataMax"]}
+            />
+            <Tooltip
+              cursor={{ strokeDasharray: "0", stroke: "#c9cfcb" }}
+              content={({ active, payload }: any) => {
+                if (!active || !payload?.length) return null;
+                const p = payload[0]?.payload ?? {};
+                const who = p.label ?? p.nome ?? p.jogador;
+                return (
+                  <div className="rounded-[10px] bg-[var(--night-0)] px-3 py-2.5 text-xs text-white shadow-[var(--shadow-3)] ring-1 ring-white/10">
+                    {who ? <p className="mb-1 font-medium">{String(who)}</p> : null}
+                    <p className="num text-white/75">
+                      {p.idade} {t.ui.common.anos} · {eurCompact(p.valor, L)}
+                    </p>
+                  </div>
+                );
+              }}
+            />
+            {groups.map((g) => (
+              <Scatter
+                key={g.key}
+                name={g.key}
+                data={g.rows}
+                fill={g.color}
+                stroke="#fff"
+                strokeWidth={1.5}
+                onClick={onPointClick}
+                cursor="pointer"
+                {...ANIM}
+              />
+            ))}
+          </ScatterChart>
+        </ChartBox>
+      </div>
+      {hasSector ? <LegendRow items={groups.map((g) => ({ label: sectorName[g.key] ?? g.key, color: g.color }))} /> : null}
     </div>
   );
 }
@@ -766,11 +838,11 @@ function KpiWidget({
 }) {
   return (
     <div className="flex h-full w-full flex-col justify-center gap-1">
-      <span className="text-2xl font-semibold text-slate-900">
+      <span className="num text-3xl font-medium tracking-[-0.03em] text-gray-950">
         {data.value !== null ? formatNumber(data.value) : "—"}
       </span>
-      <span className="text-xs text-slate-500">{data.label}</span>
-      {data.sub && <span className="text-xs text-slate-400">{data.sub}</span>}
+      <span className="text-xs text-gray-500">{data.label}</span>
+      {data.sub && <span className="text-xs text-gray-400">{data.sub}</span>}
     </div>
   );
 }

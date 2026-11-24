@@ -18,6 +18,9 @@ type ClubRow = {
   countryCode?: string | null;
   stateCode?: string | null;
   continentCode?: string | null;
+  city?: string | null;
+  stateName?: string | null;
+  countryName?: string | null;
 };
 
 export default function ClubesClient({ initialClubs }: { initialClubs: ClubRow[] }) {
@@ -66,7 +69,7 @@ export default function ClubesClient({ initialClubs }: { initialClubs: ClubRow[]
   );
 
   return (
-    <section className="mx-auto w-full max-w-6xl bg-gray-50 p-6">
+    <section className="mx-auto w-full max-w-6xl">
       <ConfirmDeleteDialog
         open={delOpen}
         title={t.adminClubes.deletarTitle}
@@ -86,9 +89,9 @@ export default function ClubesClient({ initialClubs }: { initialClubs: ClubRow[]
         crumbLabel={t.adminClubes.title}
       />
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <div className="overflow-hidden surface">
         {/* Head */}
-        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-slate-700">
           <span />
           <span>{t.adminClubes.clube}</span>
           <span>{t.adminClubes.local}</span>
@@ -114,8 +117,9 @@ export default function ClubesClient({ initialClubs }: { initialClubs: ClubRow[]
                   key={c.id}
                   foto={c.logoUrl}
                   title={c.nome}
-                  subtitle={`${c.slug} • ${loc}`}
-                  createdAt={c.createdAt}
+                  subtitle={[c.city, c.stateName ?? c.countryName].filter(Boolean).join(" · ") || undefined}
+                  createdAt={loc}
+                  extra={c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"}
                   actions={[
                     { icon: Pencil, href: `/admin/clubes/${c.id}`, color: "yellow" },
                     {

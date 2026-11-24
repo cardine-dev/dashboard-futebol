@@ -4,8 +4,8 @@ import type { WidgetApiResponse, WidgetFilters } from "@/type/dashboard";
 
 /* ============================================================
    BUCKETS DE COMPARAÇÃO
-   - PON = PD + PE
-   - LAT = LD + LE
+   - PON = PD + PE (+ PONTA)
+   - LAT = LD + LE (+ LAT/LATERAL)
 ============================================================ */
 
 type ComparePos = "GOL" | "ZAG" | "LAT" | "VOL" | "MC" | "MEI" | "PON" | "ATA";
@@ -46,76 +46,70 @@ function toFiniteNumber(v: unknown): number | null {
 }
 
 /* ============================================================
-   NORMALIZAÇÃO -> BUCKET (BASE)
+   NORMALIZAÇÃO -> BUCKET (mesma regra para BASE e MERCADO)
+   Códigos canônicos do projeto: GOL, LD, ZAG, LE, LAT, VOL, MC, MEI, PD, PE, ATA
+   + aliases por extenso/inglês que aparecem em CSV de mercado.
 ============================================================ */
 
-function basePosToBucket(v: unknown): ComparePos | null {
+const POSITION_BUCKET: Record<string, ComparePos> = {
+  // canônicos
+  GOL: "GOL",
+  ZAG: "ZAG",
+  LAT: "LAT",
+  LD: "LAT",
+  LE: "LAT",
+  VOL: "VOL",
+  MC: "MC",
+  MEI: "MEI",
+  PD: "PON",
+  PE: "PON",
+  PON: "PON",
+  ATA: "ATA",
+
+  // por extenso (pt)
+  GOLEIRO: "GOL",
+  ZAGUEIRO: "ZAG",
+  LATERAL: "LAT",
+  "LATERAL DIREITO": "LAT",
+  "LATERAL ESQUERDO": "LAT",
+  VOLANTE: "VOL",
+  "MEIO-CAMPO": "MC",
+  "MEIO CAMPO": "MC",
+  MEIA: "MEI",
+  "MEIA ATACANTE": "MEI",
+  "MEIA-ATACANTE": "MEI",
+  PONTA: "PON",
+  "PONTA DIREITA": "PON",
+  "PONTA ESQUERDA": "PON",
+  ATACANTE: "ATA",
+  CENTROAVANTE: "ATA",
+
+  // inglês
+  GK: "GOL",
+  CB: "ZAG",
+  RB: "LAT",
+  LB: "LAT",
+  FB: "LAT",
+  DM: "VOL",
+  CDM: "VOL",
+  CM: "MC",
+  AM: "MEI",
+  CAM: "MEI",
+  RW: "PON",
+  LW: "PON",
+  ST: "ATA",
+  CF: "ATA",
+};
+
+export function positionToBucket(v: unknown): ComparePos | null {
   if (typeof v !== "string") return null;
-  const s = v.trim().toUpperCase();
+  const s = v.trim().toUpperCase().replace(/\s+/g, " ");
   if (!s) return null;
-
-  // Canônicas do seu projeto
-  if (s === "GOL") return "GOL";
-  if (s === "ZAG") return "ZAG";
-
-  if (s === "LD" || s === "LE") return "LAT";
-  if (s === "PD" || s === "PE") return "PON";
-
-  if (s === "VOL") return "VOL";
-  if (s === "MC") return "MC";
-  if (s === "MEI") return "MEI";
-  if (s === "ATA") return "ATA";
-
-  return null;
+  return POSITION_BUCKET[s] ?? null;
 }
 
-/* ============================================================
-   NORMALIZAÇÃO -> BUCKET (MERCADO)
-   Regra: Mercado pode vir "PONTA" e "LATERAL"
-============================================================ */
-
-function marketPosToBucket(v: unknown): ComparePos | null {
-  if (typeof v !== "string") return null;
-  const s = v.trim().toUpperCase();
-  if (!s) return null;
-
-  // Mercado já vem assim muitas vezes:
-  if (s === "PONTA") return "PON";
-  if (s === "LATERAL") return "LAT";
-
-  // Se vier lado, colapsa também
-  if (s === "PD" || s === "PE") return "PON";
-  if (s === "LD" || s === "LE") return "LAT";
-
-  // Algumas variações mínimas comuns
-  const alias: Record<string, ComparePos> = {
-    GOLEIRO: "GOL",
-    GK: "GOL",
-
-    ZAGUEIRO: "ZAG",
-    CB: "ZAG",
-
-    VOLANTE: "VOL",
-    DM: "VOL",
-
-    MEIA: "MEI",
-    AM: "MEI",
-
-    ATACANTE: "ATA",
-    ST: "ATA",
-
-    // Se o CSV vier com isso, já colapsa:
-    "LATERAL DIREITO": "LAT",
-    "LATERAL ESQUERDO": "LAT",
-  };
-
-  if (alias[s]) return alias[s];
-
-  // Se por acaso vier "MC" direto
-  if (s === "MC") return "MC";
-
-  return null;
-}
+const basePosToBucket = positionToBucket;
+const marketPosToBucket = positionToBucket;
 
 /* ============================================================
    FILTROS

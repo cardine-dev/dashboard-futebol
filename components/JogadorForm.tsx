@@ -27,7 +27,7 @@ const POSICOES: Posicao[] = [
 
 const INPUT_CLASSES =
   "rounded-[10px] border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-[#334155]/30 focus:border-[#334155] placeholder:text-gray-400";
+  "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)] placeholder:text-gray-400";
 
 export type JogadorFormModel = Partial<Jogador> & {
   // novos/compat
@@ -361,7 +361,7 @@ export default function JogadorForm({
                     updateField("_contratoVigente", e.target.checked);
                     if (e.target.checked) updateField("contratoFim", null);
                   }}
-                  className="accent-[#334155]"
+                  className="accent-[var(--accent)]"
                 />
                 {t.form.contratoVigente}
               </label>
@@ -470,7 +470,7 @@ export default function JogadorForm({
         </div>
       </AdminSectionCard>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
+      <div className="surface p-4 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">
           {t.form.estatisticas}
         </h2>
@@ -550,7 +550,7 @@ export default function JogadorForm({
           <button
             type="button"
             onClick={handleAddSeason}
-            className="h-[38px] rounded-lg bg-[#94a3b8] px-4 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="h-[38px] rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {t.form.adicionarTemporada}
           </button>
@@ -679,7 +679,7 @@ export default function JogadorForm({
         <button
           type="submit"
           disabled={!!saving}
-          className="rounded-lg bg-[#94a3b8] px-4 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8] disabled:opacity-60 disabled:cursor-not-allowed"
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {saving ? t.form.salvando : submitLabel}
         </button>

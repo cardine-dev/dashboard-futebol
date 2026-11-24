@@ -239,15 +239,15 @@ export default function GeoMapWidget({ data, size = "md" }: Props) {
       <div className="relative h-full w-full">
         <div className="mb-2 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900">{t.geoMap.mapa}</div>
-            <div className="mt-1 text-xs text-gray-500">{subtitleLabel}</div>
+            <div className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{t.geoMap.mapa}</div>
+            <div className="mt-0.5 text-[13px] text-gray-500">{subtitleLabel}</div>
           </div>
 
           {mode !== "WORLD" && (
             <button
               type="button"
               onClick={back}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/25 bg-[#334155] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#334155]"
+              className="btn btn-ghost cursor-pointer"
               title={t.geoMap.voltar}
             >
               <ArrowLeft size={16} />
@@ -258,7 +258,7 @@ export default function GeoMapWidget({ data, size = "md" }: Props) {
 
         <div
           ref={boxRef}
-          className="relative h-[calc(100%-40px)] w-full overflow-hidden rounded-2xl border border-gray-200 bg-white"
+          className="relative h-[calc(100%-48px)] w-full overflow-hidden rounded-[12px] bg-[var(--surface-2)] ring-1 ring-[var(--hairline)]"
         >
           {!ready || !projection || !fc ? null : (
             <MapCanvas

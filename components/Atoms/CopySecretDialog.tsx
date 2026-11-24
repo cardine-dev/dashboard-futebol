@@ -36,7 +36,7 @@ export default function CopySecretDialog({
       />
 
       <div className="absolute inset-0 grid place-items-center px-4">
-        <div className="w-full max-w-[560px] rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)] overflow-hidden">
+        <div className="w-full max-w-[560px] surface shadow-[0_18px_60px_rgba(0,0,0,0.18)] overflow-hidden">
           <div className="p-4 border-b border-gray-200">
             <div className="text-sm font-extrabold text-slate-900">{title}</div>
             <div className="mt-1 text-xs text-gray-600">{description}</div>
@@ -44,7 +44,7 @@ export default function CopySecretDialog({
 
           <div className="p-4 space-y-3">
             <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-              <div className="text-[11px] uppercase tracking-wider text-gray-500">
+              <div className="text-[11px] text-gray-500">
                 {payloadTitle}
               </div>
 
@@ -76,7 +76,7 @@ export default function CopySecretDialog({
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
               }}
-              className="rounded-lg bg-[#94a3b8] px-4 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8]"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)]"
             >
               <span className="inline-flex items-center gap-2">
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

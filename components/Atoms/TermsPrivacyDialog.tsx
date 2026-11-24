@@ -52,7 +52,7 @@ export default function TermsPrivacyDialog({
             onClick={() => setTab("termos")}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
               tab === "termos"
-                ? "border-[#334155] text-[#334155] bg-blue-50/60"
+                ? "border-[var(--ink)] text-[var(--ink)] bg-blue-50/60"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -63,7 +63,7 @@ export default function TermsPrivacyDialog({
             onClick={() => setTab("privacidade")}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
               tab === "privacidade"
-                ? "border-[#334155] text-[#334155] bg-blue-50/60"
+                ? "border-[var(--ink)] text-[var(--ink)] bg-blue-50/60"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -87,7 +87,7 @@ export default function TermsPrivacyDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl px-5 py-2 text-sm font-semibold bg-[#334155] text-white hover:bg-[#334155] transition-colors"
+            className="rounded-xl px-5 py-2 text-sm font-semibold bg-[var(--ink)] text-white hover:bg-[var(--color-gray-800)] transition-colors"
           >
             {tp.fechar}
           </button>

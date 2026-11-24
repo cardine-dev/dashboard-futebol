@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/authHelper";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,8 +15,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -24,7 +26,7 @@ export async function POST(
     const msgs: any[] = Array.isArray(body?.messages) ? body.messages : [];
 
     if (msgs.length === 0) {
-      return NextResponse.json({ error: "Nenhuma mensagem fornecida" }, { status: 400 });
+      return apiError(400, "Nenhuma mensagem fornecida");
     }
 
     // Verify ownership
@@ -34,7 +36,7 @@ export async function POST(
     });
 
     if (!conv) {
-      return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
+      return apiError(404, "Conversa não encontrada");
     }
 
     // Validate and sanitize each message
@@ -50,7 +52,7 @@ export async function POST(
       }));
 
     if (data.length === 0) {
-      return NextResponse.json({ error: "Mensagens inválidas" }, { status: 400 });
+      return apiError(400, "Mensagens inválidas");
     }
 
     await prisma.$transaction([
@@ -63,7 +65,6 @@ export async function POST(
 
     return NextResponse.json({ ok: true, saved: data.length }, { status: 201 });
   } catch (err) {
-    console.error("POST /api/chats/[id]/messages error:", err);
-    return NextResponse.json({ error: "Erro ao salvar mensagens" }, { status: 500 });
+    return handleRouteError(err, "POST /api/chats/[id]/messages", "Erro ao salvar mensagens");
   }
 }

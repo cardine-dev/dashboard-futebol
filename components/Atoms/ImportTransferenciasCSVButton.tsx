@@ -39,6 +39,7 @@ type ImportResult = {
   parsed: number;
   inserted: number;
   skippedDuplicates: number;
+  invalid?: number;
   errors?: string[];
 };
 
@@ -204,7 +205,8 @@ export default function ImportTransferenciasCsvButton({
         body: fd,
       });
 
-      const data = (await r.json()) as ImportResult;
+      if (r.status === 413) throw new Error(t.ui.importLimite);
+      const data = (await r.json().catch(() => ({ ok: false }))) as ImportResult;
 
       if (!r.ok || !data.ok) {
         const msg = data?.errors?.join("\n") ?? t.importCsv.erroImportar;
@@ -250,17 +252,17 @@ export default function ImportTransferenciasCsvButton({
   );
 
   const headersPreview = (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">
+          <div className="text-[11px] text-slate-500">
             {t.importCsv.obrigatorias}
           </div>
           <div className="mt-1 text-sm text-slate-800 leading-relaxed wrap-break-word">
             {prettyHeaders(REQUIRED_HEADERS)}
           </div>
 
-          <div className="mt-3 text-[11px] uppercase tracking-wider text-slate-500">
+          <div className="mt-3 text-[11px] text-slate-500">
             {t.importCsv.opcionais}
           </div>
           <div className="mt-1 text-sm text-slate-800 leading-relaxed wrap-break-word">
@@ -274,7 +276,7 @@ export default function ImportTransferenciasCsvButton({
             onClick={() =>
               downloadTextFile("transferencias_template.csv", buildTemplateCsv())
             }
-            className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 h-10 px-4 surface hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
             title={t.importCsv.template}
           >
             <FileText className="w-4 h-4" />
@@ -284,7 +286,7 @@ export default function ImportTransferenciasCsvButton({
           <button
             type="button"
             onClick={copyHeaders}
-            className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 h-10 px-4 surface hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
             title={t.importCsv.headers}
           >
             <ClipboardCopy className="w-4 h-4" />
@@ -433,7 +435,7 @@ export default function ImportTransferenciasCsvButton({
                 )}
 
                 {result && (
-                  <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                  <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
                       <div className="space-y-1">
@@ -443,6 +445,18 @@ export default function ImportTransferenciasCsvButton({
                           <b>{result.inserted}</b> · {t.importCsv.ignoradas}:{" "}
                           <b>{result.skippedDuplicates}</b>
                         </div>
+                        {result.errors?.length ? (
+                          <details className="mt-2 text-amber-900">
+                            <summary className="cursor-pointer font-medium">
+                              {result.invalid ?? result.errors.length} {t.ui.importRecusadas}
+                            </summary>
+                            <ul className="mt-1 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5 text-xs">
+                              {result.errors.slice(0, 50).map((e, i) => (
+                                <li key={i}>{e}</li>
+                              ))}
+                            </ul>
+                          </details>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -454,7 +468,7 @@ export default function ImportTransferenciasCsvButton({
                 <button
                   disabled={busy}
                   onClick={() => setOpen(false)}
-                  className="h-10 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  className="h-10 px-4 surface hover:bg-slate-50 active:scale-[0.99] transition disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
                   {t.importCsv.cancelar}
                 </button>

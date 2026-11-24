@@ -25,16 +25,16 @@ export default function SuccessDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl border border-emerald-100">
+    <div className="backdrop-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] px-4 backdrop-blur-[2px]">
+      <div role="dialog" aria-modal="true" className="overlay-in w-full max-w-sm rounded-[16px] bg-[var(--surface)] p-5 shadow-[var(--shadow-3)]">
         <div className="flex gap-3 mb-4">
           <div className="mt-1">
-            <div className="h-9 w-9 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]" style={{ animation: "pop 360ms cubic-bezier(0.34,1.56,0.64,1) 120ms both" }}>
               <CheckCircle2 size={20} />
             </div>
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+            <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-gray-950">{title}</h2>
             {description && (
               <p className="text-sm text-gray-600 mt-1">{description}</p>
             )}
@@ -45,7 +45,7 @@ export default function SuccessDialog({
           {secondaryLabel && onSecondary && (
             <button
               type="button"
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="btn btn-ghost cursor-pointer"
               onClick={onSecondary}
             >
               {secondaryLabel}
@@ -53,7 +53,7 @@ export default function SuccessDialog({
           )}
           <button
             type="button"
-            className="rounded-lg bg-[#334155] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#334155]"
+            className="btn btn-primary cursor-pointer"
             onClick={onPrimary}
           >
             {primaryLabel}

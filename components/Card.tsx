@@ -2,260 +2,131 @@
 
 import type { Jogador } from "../type/jogador";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/contexts/I18nContext";
+import PlayerAvatar from "@/components/ui/PlayerAvatar";
+import StarButton from "@/components/ui/StarButton";
+import { corDoSetor } from "@/lib/ui/sector";
+import { eurMi, intlLocale, mesesAte, num } from "@/lib/ui/format";
 
-const FALLBACK_DOM =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="%2364748B"/></svg>';
-const FALLBACK_SEC =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="%23000000"/></svg>';
+type Props = { player: Jogador; onClick?: (id: string) => void };
 
-const getFootSrc = (
-  n: "direito" | "direito_dominante" | "esquerdo" | "esquerdo_dominante",
-) => `/assets/pe/${n}.svg`;
-
-const fmtEUR = (mi: number) =>
-  "€ " +
-  mi.toLocaleString("pt-BR", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }) +
-  "M";
-
-function onlyDigits(v: string) {
-  return (v ?? "").replace(/\D/g, "");
-}
-
-function formatCPF(digitsRaw: string) {
-  const d = onlyDigits(digitsRaw).slice(0, 11);
-
-  const p1 = d.slice(0, 3);
-  const p2 = d.slice(3, 6);
-  const p3 = d.slice(6, 9);
-  const p4 = d.slice(9, 11);
-
-  let out = p1;
-  if (p2) out += `.${p2}`;
-  if (p3) out += `.${p3}`;
-  if (p4) out += `-${p4}`;
-
-  return out;
-}
-
-function calcAgeFromYear(year?: number | null) {
-  if (!year || !Number.isFinite(year)) return null;
-  const now = new Date();
-  const age = now.getFullYear() - year;
-  return age < 0 ? 0 : age;
-}
-
-function PosicaoLabel({ p }: { p: Jogador["posicao"] }) {
+/** Selo de contrato: só aparece quando pede atenção (vence em até 12 meses). */
+export function ContractBadge({ fim, compact = false }: { fim?: string | null; compact?: boolean }) {
   const { t } = useI18n();
-  return <>{(t.positions as any)[p] ?? p}</>;
-}
-
-function Initials({ name }: { name: string }) {
-  const parts = name.trim().split(/\s+/);
-  const a = parts[0]?.[0] ?? "";
-  const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  const m = mesesAte(fim);
+  if (m === null || m > 12) return null;
+  const vencido = m < 0;
+  const urgente = m <= 6;
+  const tone = vencido || urgente ? "var(--bad)" : "var(--warn)";
   return (
-    <span className="font-extrabold text-[#334155] text-[28px]">
-      {`${a}${b}`.toUpperCase()}
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+      style={{
+        color: tone,
+        background: `color-mix(in oklab, ${tone} 9%, white)`,
+        boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${tone} 22%, transparent)`,
+      }}
+      title={fim ? new Date(fim).toLocaleDateString() : undefined}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} aria-hidden />
+      {vencido ? t.ui.common.vencido : compact ? `${m} ${t.ui.common.meses}` : `${t.ui.common.vence} ${m} ${t.ui.common.meses}`}
     </span>
   );
 }
 
-type Props = { player: Jogador; onClick?: (id: string) => void };
-
 export default function Card({ player, onClick }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const router = useRouter();
+  const L = intlLocale(locale);
+  const cor = corDoSetor(player.posicao);
+
+  const hasPosse = typeof player.possePct === "number" && Number.isFinite(player.possePct);
+  const posse = hasPosse ? Math.max(0, Math.min(100, player.possePct as number)) : null;
   const temValor = Number(player.valorMercado) > 0;
+  const clube = player.clubeRef?.nome ?? player.clubeNome ?? null;
+  const agencia = player.representacao ?? null;
+  const pos = (t.positions as any)[player.posicao] ?? player.posicao;
 
-  const hasPosse =
-    typeof player.possePct === "number" && Number.isFinite(player.possePct);
-  const possePct = hasPosse ? (player.possePct as number) : 0;
-  const widthPct = hasPosse ? Math.max(0, Math.min(100, possePct)) : 0;
-  const posseLabel = hasPosse
-    ? `${possePct.toFixed(1).replace(".", ",")}%`
-    : "—";
-
-  const representacao =
-    (player as any).representacao ?? (player as any)["representação"] ?? "";
-
-  const isDomDireito = player.peDominante === "D";
-
-  const leftFootSrc = isDomDireito
-    ? getFootSrc("esquerdo") || FALLBACK_SEC
-    : getFootSrc("esquerdo_dominante") || FALLBACK_DOM;
-
-  const rightFootSrc = isDomDireito
-    ? getFootSrc("direito_dominante") || FALLBACK_DOM
-    : getFootSrc("direito") || FALLBACK_SEC;
-
-  const footPrimaryClass = "block w-[22px] h-[22px] scale-105 opacity-100";
-  const footSecondaryClass = "block w-4 h-4 scale-[.92] opacity-90";
-
-  const leftFootClass = isDomDireito ? footSecondaryClass : footPrimaryClass;
-  const rightFootClass = isDomDireito ? footPrimaryClass : footSecondaryClass;
-
-  const trackClass = temValor ? "bg-green-100" : "bg-gray-100";
-  const fillClass = temValor ? "bg-green-500" : "bg-gray-400";
-  const pctTextClass = temValor ? "text-green-600" : "text-gray-400";
-  const valueTextClass = "text-green-700";
-
-  const anoNascimentoRaw = (player as any).anoNascimento;
-  const anoNascimento =
-    typeof anoNascimentoRaw === "number" && Number.isFinite(anoNascimentoRaw)
-      ? anoNascimentoRaw
-      : null;
-
-  const idadeCalc = calcAgeFromYear(anoNascimento);
-  const idadeExibida =
-    idadeCalc ?? (typeof player.idade === "number" ? player.idade : null);
-
-  const cpfRaw = (player as any).cpf ? String((player as any).cpf) : "";
-  const cpfFmt = cpfRaw ? formatCPF(cpfRaw) : "";
-
-  // regra: se tem CPF + anoNasc + valorMercado, não mostra idade
-  const showIdade = !(cpfFmt && anoNascimento && temValor);
+  const meta = [
+    typeof player.idade === "number" ? `${player.idade} ${t.ui.common.anos}` : null,
+    player.peDominante ? ((t.ui.pe as any)[player.peDominante] ?? null) : null,
+    player.altura ? `${num(player.altura, L, 2)} m` : null,
+  ].filter(Boolean);
 
   return (
-    <Link
-      href={`/jogadores/${player.id}`}
-      className="block text-inherit no-underline group"
-      aria-label={`${t.cardAriaVerDetalhes} ${player.nome}`}
-      onClick={() => onClick?.(player.id)}
+    <article
+      data-pdf-block="true"
+      className="surface surface-hover group relative flex min-h-[248px] cursor-pointer flex-col p-4"
+      onClick={(e) => {
+        // o card inteiro abre a ficha; o nome continua sendo o link (teclado e leitor de tela)
+        if ((e.target as HTMLElement).closest("a,button")) return;
+        onClick?.(player.id);
+        router.push(`/jogadores/${player.id}`);
+      }}
     >
-      <article
-        data-pdf-block="true"
-        className="bg-white border border-gray-200 rounded-2xl px-[18px] py-5 min-h-80
-                   flex flex-col gap-3 transition-all duration-150 ease-in-out
-                   hover:shadow-[0_16px_38px_rgba(0,0,0,0.08)] hover:border-[#d5d9e5] hover:scale-105
-                   active:translate-y-px
-                   group-focus-visible:outline group-focus-visible:outline-[#64748B] group-focus-visible:outline-offset-2 group-focus-visible:rounded-[14px]"
-        role="article"
-      >
-        <div
-          className="w-28 h-28 my-1 mb-1.5 mx-auto rounded-full overflow-hidden
-                     grid place-items-center bg-linear-to-br from-[#eef2f6] to-white border border-[#e2e8f0]"
-        >
-          {player.imagemUrl ? (
-            <img
-              src={player.imagemUrl}
-              alt={player.nome}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <Initials name={player.nome} />
-          )}
-        </div>
+      <div className="absolute right-2 top-2 z-10">
+        <StarButton id={player.id} nome={player.nome} />
+      </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <h3
-            className="m-0 text-xl font-extrabold text-slate-900 whitespace-nowrap overflow-hidden text-ellipsis flex-auto min-w-0"
-            title={player.nome}
-          >
-            {player.nome}
-          </h3>
-
-          <div
-            className="inline-flex items-center gap-0.5 flex-none"
-            title={`${t.foot.dominante}: ${player.peDominante}`}
-          >
-            <img
-              src={leftFootSrc}
-              className={leftFootClass}
-              alt=""
-              aria-hidden
-            />
-            <img
-              src={rightFootSrc}
-              className={rightFootClass}
-              alt=""
-              aria-hidden
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-center">
-          <span className="font-bold text-[#222a3a] text-sm">
-            <PosicaoLabel p={player.posicao} />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0 flex-auto">
-            {anoNascimento && (
-              <>
-                <span className="text-gray-500 text-[13px] whitespace-nowrap flex-none">
-                  {anoNascimento}
-                </span>
-              </>
-            )}
-
-            {cpfFmt && 
-            (
-              <span
-                className="text-gray-500 text-[13px] whitespace-nowrap"
-                title={`CPF: ${cpfFmt}`}
-              >
-                • CPF: {cpfFmt}
-              </span>
-            )}
-          </div>
-
-          {temValor ? (
-            <span
-              className={`inline-flex items-baseline gap-1.5 font-extrabold text-sm leading-none whitespace-nowrap ${valueTextClass} flex-none`}
+      <div className="flex items-start gap-3 pr-8">
+        <PlayerAvatar nome={player.nome} posicao={player.posicao} imagemUrl={player.imagemUrl} size={56} />
+        <div className="min-w-0 pt-0.5">
+          <h3 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-gray-950" title={player.nome}>
+            <Link
+              href={`/jogadores/${player.id}`}
+              onClick={() => onClick?.(player.id)}
+              className="no-underline text-inherit hover:underline underline-offset-2"
+              aria-label={`${t.cardAriaVerDetalhes} ${player.nome}`}
             >
-              {fmtEUR(player.valorMercado)}
-            </span>
-          ) : (
-            <span className="text-[13px] text-transparent select-none flex-none">
-              .
-            </span>
-          )}
+              {player.nome}
+            </Link>
+          </h3>
+          <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-gray-600">
+            <span className="sector-dot" style={{ background: cor }} aria-hidden />
+            <span className="truncate">{pos}</span>
+            {player.numeroCamisa ? <span className="num text-gray-500">· #{player.numeroCamisa}</span> : null}
+          </p>
         </div>
+      </div>
 
-        <div className="flex items-center justify-center gap-2.5">
-          <div
-            className={`relative w-[89%] max-xl:w-[78%] h-3 rounded-full ${trackClass} overflow-hidden`}
-            aria-hidden
-          >
-            {hasPosse && (
-              <span
-                className={`absolute inset-0 right-auto ${fillClass} rounded-full`}
-                style={{ width: `${widthPct}%` }}
-              />
-            )}
-          </div>
+      <p className="mt-3 truncate text-[12.5px] text-gray-500">{meta.join(" · ")}</p>
 
-          <span
-            className={`font-extrabold text-[12.5px] tracking-[.2px] ${pctTextClass}`}
-          >
-            {posseLabel}
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11.5px] text-gray-500">{t.ui.compare.valor}</p>
+          <p className="num text-[22px] font-semibold leading-tight tracking-[-0.025em] text-gray-950">
+            {temValor ? eurMi(player.valorMercado, L) : "—"}
+          </p>
+        </div>
+        <ContractBadge fim={player.contratoFim} compact />
+      </div>
+
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-[11.5px] text-gray-500">
+          <span>{t.ui.compare.posse}</span>
+          <span className="num font-medium text-gray-800">{posse !== null ? `${num(posse, L, 0)}%` : "—"}</span>
+        </div>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]" aria-hidden>
+          {posse !== null ? (
+            <div
+              className="h-full origin-left rounded-full bg-[var(--accent)] transition-transform duration-700 ease-[var(--ease-out-expo)]"
+              style={{ transform: `scaleX(${posse / 100})` }}
+            />
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--hairline)] pt-3 text-[12px]">
+        <span className="min-w-0 truncate font-medium text-gray-700" title={clube ?? ""}>
+          {clube ?? t.ui.common.semDado}
+        </span>
+        {agencia ? (
+          <span className="min-w-0 max-w-[50%] truncate text-gray-500" title={agencia}>
+            {agencia}
           </span>
-        </div>
-
-        <div className="mt-auto flex items-center justify-between gap-3.5">
-          <span
-            className="
-              bg-gray-100 text-gray-900 font-semibold border border-gray-200
-              px-3 py-1.5 rounded-[10px] text-[12.5px]
-              max-w-[140px] truncate whitespace-nowrap overflow-hidden
-            "
-            title={player.clubeNome ?? ""}
-          >
-            {player.clubeNome ?? "—"}
-          </span>
-
-          {representacao && (
-            <span className="text-[#5f6b84] text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis max-w-[60%]">
-              {representacao}
-            </span>
-          )}
-        </div>
-      </article>
-    </Link>
+        ) : null}
+      </div>
+    </article>
   );
 }

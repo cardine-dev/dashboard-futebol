@@ -1,10 +1,12 @@
 import pt from "./pt";
 import en from "./en";
 import es from "./es";
+import type { UiStrings } from "./ui";
 
 export type Locale = "pt" | "en" | "es";
 
 export interface Translations {
+  ui: UiStrings;
   nav: {
     perfil: string;
     dashboard: string;
@@ -104,6 +106,7 @@ export interface Translations {
     PD: string;
     PE: string;
     ATA: string;
+    LAT: string;
   };
   foot: {
     D: string;

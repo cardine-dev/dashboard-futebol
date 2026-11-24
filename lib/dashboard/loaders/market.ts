@@ -1,6 +1,7 @@
 // lib/dashboard/loaders/market.ts
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { taggedSql } from "@/lib/dashboard/sqlTag";
 import type {
   WidgetApiResponse,
   WidgetFilters,
@@ -46,12 +47,12 @@ async function detectLeagueColumn(): Promise<string | null> {
 
   try {
     const rows = await prisma.$queryRaw<{ column_name: string }[]>(
-      Prisma.sql`
+      taggedSql("meta.transfer_columns", Prisma.sql`
         SELECT column_name
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = 'Transferencia'
-      `,
+      `),
     );
 
     const cols = new Set(rows.map((r) => r.column_name));
@@ -128,7 +129,7 @@ export async function loadMarketDealsByMonth(
 
     const rows = await prisma.$queryRaw<
       { year: number; month: number; deals: number }[]
-    >(Prisma.sql`
+    >(taggedSql("market.deals_by_month", Prisma.sql`
       SELECT
         EXTRACT(YEAR FROM "dataTransferencia")::int AS year,
         EXTRACT(MONTH FROM "dataTransferencia")::int AS month,
@@ -138,7 +139,7 @@ export async function loadMarketDealsByMonth(
       ${whereSql}
       GROUP BY year, month
       ORDER BY year ASC, month ASC
-    `);
+    `, filters));
 
     if (!rows.length) {
       return {
@@ -183,7 +184,7 @@ export async function loadMarketFeeByMonth(
 
     const rows = await prisma.$queryRaw<
       { year: number; month: number; value: number }[]
-    >(Prisma.sql`
+    >(taggedSql("market.fee_by_month", Prisma.sql`
       SELECT
         EXTRACT(YEAR FROM "dataTransferencia")::int AS year,
         EXTRACT(MONTH FROM "dataTransferencia")::int AS month,
@@ -195,7 +196,7 @@ export async function loadMarketFeeByMonth(
       ${whereSql}
       GROUP BY year, month
       ORDER BY year ASC, month ASC
-    `);
+    `, filters));
 
     if (!rows.length) {
       return {
@@ -239,14 +240,14 @@ export async function loadMarketFeeDistribution(
     const whereSql = buildWhereSql(filters, { leagueCol });
 
     const rows = await prisma.$queryRaw<{ valor: number }[]>(
-      Prisma.sql`
+      taggedSql("market.fee_distribution", Prisma.sql`
         SELECT "valor"::float8 AS valor
         FROM "Transferencia"
         WHERE 1=1
           AND "valor" IS NOT NULL
           AND "valor" > 0
         ${whereSql}
-      `,
+      `, filters),
     );
 
     const values = rows
@@ -314,7 +315,7 @@ export async function loadMarketTopBuyersSellers(
     const whereSql = buildWhereSql(filters, { leagueCol });
 
     const buyers = await prisma.$queryRaw<{ clube: string; total: number }[]>(
-      Prisma.sql`
+      taggedSql("market.top_buyers", Prisma.sql`
         SELECT
           TRIM("clubeDestino") AS clube,
           SUM("valor")::float8 AS total
@@ -329,11 +330,11 @@ export async function loadMarketTopBuyersSellers(
         HAVING SUM("valor") > 0
         ORDER BY total DESC
         LIMIT 12
-      `,
+      `, filters),
     );
 
     const sellers = await prisma.$queryRaw<{ clube: string; total: number }[]>(
-      Prisma.sql`
+      taggedSql("market.top_sellers", Prisma.sql`
         SELECT
           TRIM("clubeOrigem") AS clube,
           SUM("valor")::float8 AS total
@@ -348,7 +349,7 @@ export async function loadMarketTopBuyersSellers(
         HAVING SUM("valor") > 0
         ORDER BY total DESC
         LIMIT 12
-      `,
+      `, filters),
     );
 
     const map = new Map<
@@ -425,7 +426,7 @@ export async function loadMarketTopLeaguesCountries(
     const whereSql = buildWhereSql(filters, { leagueCol });
 
     const rows = await prisma.$queryRaw<{ label: string; deals: number }[]>(
-      Prisma.sql`
+      taggedSql("market.top_leagues_countries", Prisma.sql`
         SELECT
           COALESCE(NULLIF(TRIM("paisClubeDestino"), ''), '—') AS label,
           COUNT(*)::int AS deals
@@ -435,7 +436,7 @@ export async function loadMarketTopLeaguesCountries(
         GROUP BY label
         ORDER BY deals DESC
         LIMIT 12
-      `,
+      `, filters),
     );
 
     if (!rows.length) {
@@ -483,7 +484,7 @@ export async function loadMarketAgeVsFeeScatter(
 
     const rows = await prisma.$queryRaw<
       { idade: number | null; valor: number | null; posicao: string | null; label: string | null }[]
-    >(Prisma.sql`
+    >(taggedSql("market.age_vs_fee_scatter", Prisma.sql`
       SELECT
         "atletaIdade"::int AS idade,
         "valor"::float8 AS valor,
@@ -496,7 +497,7 @@ export async function loadMarketAgeVsFeeScatter(
         AND "valor" IS NOT NULL
         AND "valor" > 0
       LIMIT 800
-    `);
+    `, filters));
 
     const data: ScatterDatum[] = rows
       .map((r) => {
@@ -557,7 +558,7 @@ export async function loadMarketPositionAvgFee(
     const whereSql = buildWhereSql(filters, { leagueCol });
 
     const rows = await prisma.$queryRaw<{ posicao: string; avg: number; deals: number }[]>(
-      Prisma.sql`
+      taggedSql("market.position_avg_fee", Prisma.sql`
         SELECT
           COALESCE(NULLIF(TRIM("atletaPosicao"), ''), '—') AS posicao,
           AVG("valor")::float8 AS avg,
@@ -569,7 +570,7 @@ export async function loadMarketPositionAvgFee(
         ${whereSql}
         GROUP BY posicao
         ORDER BY avg DESC
-      `,
+      `, filters),
     );
 
     if (!rows.length) {

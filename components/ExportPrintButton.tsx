@@ -3,8 +3,8 @@
 import React from "react";
 import { useI18n } from "@/contexts/I18nContext";
 
-const BASE_BLUE = "#334155";
-const BASE_YELLOW = "#64748B";
+const BASE_BLUE = "var(--ink)";
+const BASE_YELLOW = "var(--accent)";
 
 type Props = {
   onClick: () => void;
@@ -44,7 +44,7 @@ export default function ExportPrintButton({
         className="relative z-10 flex min-h-11 items-center justify-between gap-3 rounded-xl px-4"
         style={{
           backgroundColor: BASE_BLUE,
-          border: `1px solid ${BASE_BLUE}33`,
+          border: `1px solid color-mix(in oklab, var(--ink) 20%, transparent)`,
         }}
       >
         <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export default function ExportPrintButton({
         <span
           className={[
             "rounded-full px-2 py-0.5 text-[11px] font-extrabold",
-            "opacity-0 transition-all duration-200",
+            "opacity-0 transition-opacity duration-200",
             "group-hover:opacity-100",
           ].join(" ")}
           style={{ backgroundColor: "rgba(255,255,255,0.14)", color: "white" }}
@@ -79,7 +79,7 @@ export default function ExportPrintButton({
         ].join(" ")}
         style={{
           backgroundColor: BASE_YELLOW,
-          borderColor: `${BASE_YELLOW}66`,
+          borderColor: `color-mix(in oklab, var(--accent) 40%, transparent)`,
         }}
         aria-hidden
       >

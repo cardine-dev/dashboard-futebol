@@ -23,7 +23,7 @@ export default function FormacaoPage() {
   }, []);
 
   return (
-    <section className="w-full bg-gray-50 p-6">
+    <section className="w-full">
       <div className="mx-auto w-full max-w-6xl">
         <PageTitle
           base={t.sidebar.analise}

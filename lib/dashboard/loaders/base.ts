@@ -616,12 +616,19 @@ export async function loadBaseRightsDistribution(
       select: { id: true, possePct: true },
     });
 
+    // posse null/vazia = "sem dado" (não pode virar 0 e cair em "0–10%")
     const cleaned = players
       .map((p) => ({
         id: String(p.id),
-        rights: toFiniteNumber(p.possePct),
+        rights:
+          p.possePct === null || p.possePct === undefined || (p.possePct as unknown) === ""
+            ? null
+            : toFiniteNumber(p.possePct),
       }))
-      .filter((x): x is { id: string; rights: number } => x.rights !== null);
+      .filter(
+        (x): x is { id: string; rights: number } =>
+          x.rights !== null && x.rights >= 0 && x.rights <= 100,
+      );
 
     if (!cleaned.length) {
       return empty(
@@ -634,9 +641,11 @@ export async function loadBaseRightsDistribution(
     const idsByBucket = new Map<string, string[]>();
     for (const b of RIGHTS_BUCKETS) idsByBucket.set(b.label, []);
 
+    const lastIdx = RIGHTS_BUCKETS.length - 1;
     for (const p of cleaned) {
+      // intervalos [min, max) — o último é [90, 100] (inclui 100%)
       const bucket = RIGHTS_BUCKETS.find(
-        (b) => p.rights >= b.min && p.rights < b.max,
+        (b, i) => p.rights >= b.min && (i === lastIdx ? p.rights <= b.max : p.rights < b.max),
       );
       if (!bucket) continue;
       idsByBucket.get(bucket.label)!.push(p.id);

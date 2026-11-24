@@ -142,7 +142,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="text-gray-500">{t.common.carregando}</div>
       </div>
     );
@@ -163,7 +163,7 @@ export default function ProfilePage() {
           rounded-lg border border-red-300 bg-white px-3 py-2
           text-sm font-semibold text-red-600
           transition-colors hover:bg-red-50
-          focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+          focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
           cursor-pointer
         "
         title={t.profile.sair}
@@ -178,11 +178,11 @@ export default function ProfilePage() {
         disabled={isSubmitting}
         className="
           flex items-center gap-2
-          rounded-lg bg-[#334155] px-3 py-2
+          rounded-lg bg-[var(--ink)] px-3 py-2
           text-sm font-semibold text-white
-          transition-colors hover:bg-[#334155]
+          transition-colors hover:bg-[var(--color-gray-800)]
           disabled:opacity-60
-          focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+          focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
           cursor-pointer
         "
         title={t.profile.salvar}
@@ -219,17 +219,17 @@ export default function ProfilePage() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white">
+        <div className="surface">
           <div className="border-b border-gray-200 p-5">
             <div className="flex items-center gap-3">
               <div
                 className="
                   grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full
-                  border border-[#e2e8f0]
-                  bg-linear-to-br from-[#eef2f6] to-white
+                  border border-[var(--color-gray-200)]
+                  bg-linear-to-br from-[var(--color-gray-100)] to-white
                 "
               >
-                <span className="font-extrabold text-[#334155]">
+                <span className="font-extrabold text-[var(--ink)]">
                   {initials(displayName)}
                 </span>
               </div>
@@ -246,9 +246,9 @@ export default function ProfilePage() {
                   <span
                     className="
                       inline-flex items-center
-                      rounded-full bg-[#334155]/10 px-2 py-0.5
-                      text-[11px] font-semibold text-[#334155]
-                      border border-[#334155]/15
+                      rounded-full bg-[var(--ink)]/10 px-2 py-0.5
+                      text-[11px] font-semibold text-[var(--ink)]
+                      border border-[var(--ink)]/15
                     "
                   >
                     {roleLabel}
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                   text-slate-900
                   transition-colors
                   hover:border-gray-400
-                  focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+                  focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
                 "
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -299,11 +299,11 @@ export default function ProfilePage() {
           </form>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white">
+        <div className="surface">
           <div className="border-b border-gray-200 p-5">
             <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#334155]/10 border border-[#334155]/15">
-                <KeyRound className="h-4 w-4 text-[#334155]" />
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--ink)]/10 border border-[var(--ink)]/15">
+                <KeyRound className="h-4 w-4 text-[var(--ink)]" />
               </span>
               <div>
                 <div className="font-bold text-slate-900">{t.profile.seguranca}</div>
@@ -329,7 +329,7 @@ export default function ProfilePage() {
                   text-slate-900
                   transition-colors
                   hover:border-gray-400
-                  focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+                  focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
                 "
               />
             </div>
@@ -348,7 +348,7 @@ export default function ProfilePage() {
                   text-slate-900
                   transition-colors
                   hover:border-gray-400
-                  focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+                  focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
                 "
               />
             </div>
@@ -367,7 +367,7 @@ export default function ProfilePage() {
                   text-slate-900
                   transition-colors
                   hover:border-gray-400
-                  focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+                  focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
                 "
               />
             </div>
@@ -391,11 +391,11 @@ export default function ProfilePage() {
               type="submit"
               disabled={pwSubmitting}
               className="
-                w-full rounded-lg bg-[#334155] px-4 py-2.5
+                w-full rounded-lg bg-[var(--ink)] px-4 py-2.5
                 text-sm font-semibold text-white
-                transition-colors hover:bg-[#334155]
+                transition-colors hover:bg-[var(--color-gray-800)]
                 disabled:opacity-60
-                focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
+                focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:-outline-offset-2
                 cursor-pointer
               "
             >

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/authHelper";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,10 +11,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserId(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -23,19 +23,12 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json(
-        { error: "Relatório não encontrado" },
-        { status: 404 }
-      );
+      return apiError(404, "Relatório não encontrado");
     }
 
     return NextResponse.json({ report });
   } catch (err) {
-    console.error("GET /api/reports/[id] error:", err);
-    return NextResponse.json(
-      { error: "Erro ao buscar relatório" },
-      { status: 500 }
-    );
+    return handleRouteError(err, "GET /api/reports/[id]", "Erro ao buscar relatório");
   }
 }
 
@@ -44,10 +37,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserId(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -60,10 +52,7 @@ export async function PATCH(
         : null;
 
     if (!title) {
-      return NextResponse.json(
-        { error: "Título é obrigatório" },
-        { status: 400 }
-      );
+      return apiError(400, "Título é obrigatório");
     }
 
     const existing = await prisma.report.findFirst({
@@ -72,10 +61,7 @@ export async function PATCH(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Relatório não encontrado" },
-        { status: 404 }
-      );
+      return apiError(404, "Relatório não encontrado");
     }
 
     const report = await prisma.report.update({
@@ -91,11 +77,7 @@ export async function PATCH(
 
     return NextResponse.json({ report });
   } catch (err) {
-    console.error("PATCH /api/reports/[id] error:", err);
-    return NextResponse.json(
-      { error: "Erro ao renomear relatório" },
-      { status: 500 }
-    );
+    return handleRouteError(err, "PATCH /api/reports/[id]", "Erro ao renomear relatório");
   }
 }
 
@@ -104,10 +86,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserId(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -117,18 +98,11 @@ export async function DELETE(
     });
 
     if (result.count === 0) {
-      return NextResponse.json(
-        { error: "Relatório não encontrado" },
-        { status: 404 }
-      );
+      return apiError(404, "Relatório não encontrado");
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/reports/[id] error:", err);
-    return NextResponse.json(
-      { error: "Erro ao deletar relatório" },
-      { status: 500 }
-    );
+    return handleRouteError(err, "DELETE /api/reports/[id]", "Erro ao deletar relatório");
   }
 }

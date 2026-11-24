@@ -1,7 +1,7 @@
 import type { Jogador } from "@/type/jogador";
 
-export const BASE_BLUE = "#334155";
-export const BASE_YELLOW = "#64748B";
+export const BASE_BLUE = "var(--ink)";
+export const BASE_YELLOW = "var(--accent)";
 
 export const NONE_AGENCY = "__NONE_AGENCY__";
 

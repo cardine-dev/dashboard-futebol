@@ -1,186 +1,93 @@
 "use client";
 
-import { KeyboardEvent } from "react";
-import { useRouter } from "next/navigation";
 import type { Jogador } from "@/type/jogador";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/contexts/I18nContext";
+import PlayerAvatar from "@/components/ui/PlayerAvatar";
+import StarButton from "@/components/ui/StarButton";
+import { ContractBadge } from "@/components/Card";
+import { corDoSetor } from "@/lib/ui/sector";
+import { dataCurta, eurMi, intlLocale, num } from "@/lib/ui/format";
 
-const FALLBACK_DOM =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="%2364748B"/></svg>';
-const FALLBACK_SEC =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="%23000000"/></svg>';
+type Props = { player: Jogador };
 
-const getFootSrc = (
-  n: "direito" | "direito_dominante" | "esquerdo" | "esquerdo_dominante",
-) => `/assets/pe/${n}.svg`;
+const td = "px-4 py-3 align-middle text-[13px] text-gray-700 border-b border-[var(--hairline)]";
 
-function initials(nome: string) {
-  const p = nome.trim().split(/\s+/);
-  return ((p[0]?.[0] ?? "") + (p[p.length - 1]?.[0] ?? "")).toUpperCase();
-}
-
-const fmtEUR = (mi: number) =>
-  `€ ${mi.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}M`;
-
-// Position label resolved via i18n in the component below
-
-const tdBaseClasses =
-  "px-4 py-3 align-middle border-b border-gray-200 text-slate-900 whitespace-nowrap";
-
-export default function PlayerRow({ player }: { player: Jogador }) {
+export default function PlayerRow({ player }: Props) {
   const router = useRouter();
-  const { t } = useI18n();
-
-  const isDomDireito = player.peDominante === "D";
-
-  const leftFootSrc = isDomDireito
-    ? getFootSrc("esquerdo") || FALLBACK_SEC
-    : getFootSrc("esquerdo_dominante") || FALLBACK_DOM;
-
-  const rightFootSrc = isDomDireito
-    ? getFootSrc("direito_dominante") || FALLBACK_DOM
-    : getFootSrc("direito") || FALLBACK_SEC;
-
+  const { t, locale } = useI18n();
+  const L = intlLocale(locale);
   const go = () => router.push(`/jogadores/${player.id}`);
 
-  const onKey = (e: KeyboardEvent<HTMLTableRowElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      go();
-    }
-  };
-
-  const situacao = (() => {
-    const inicio = (player as any).contratoInicio;
-    const fim = (player as any).contratoFim;
-    if (inicio || fim) {
-      const fmt = (iso: string) => {
-        const d = new Date(iso);
-        return `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-      };
-      return `${inicio ? fmt(inicio) : "?"} - ${fim ? fmt(fim) : t.detail.presente}`;
-    }
-    return player.situacao && String(player.situacao).trim() !== ""
-      ? String(player.situacao)
-      : "—";
-  })();
-
-  const possePct =
-    typeof player.possePct === "number"
-      ? player.possePct.toFixed(0) + "%"
-      : "—";
-
-  const altura =
-    typeof (player as any).altura === "number" &&
-    Number.isFinite((player as any).altura)
-      ? `${(player as any).altura} cm`
-      : "—";
-
+  const posse = typeof player.possePct === "number" ? player.possePct : null;
   const temValor = Number(player.valorMercado) > 0;
-  const valorTxt = temValor ? fmtEUR(player.valorMercado) : "—";
 
   return (
     <tr
       data-pdf-block="true"
-      className="
-        cursor-pointer
-        transition-colors duration-150
-        hover:bg-gray-50
-        focus-visible:outline focus-visible:outline-[#64748B] focus-visible:-outline-offset-2
-      "
+      className="group cursor-pointer transition-colors duration-150 hover:bg-[var(--surface-2)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]"
       role="link"
       tabIndex={0}
       onClick={go}
-      onKeyDown={onKey}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          go();
+        }
+      }}
     >
-      <td className={tdBaseClasses}>
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#e2e8f0]
-                       bg-linear-to-br from-[#eef2f6] to-white grid place-items-center"
-          >
-            {player.imagemUrl ? (
-              <img
-                src={player.imagemUrl}
-                alt={player.nome}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="font-extrabold text-[#334155]">
-                {initials(player.nome)}
-              </span>
-            )}
-          </div>
-
+      <td className={td}>
+        <div className="flex min-w-0 items-center gap-3">
+          <PlayerAvatar nome={player.nome} posicao={player.posicao} imagemUrl={player.imagemUrl} size={36} />
           <div className="min-w-0">
-            <div
-              className="font-bold text-slate-900 truncate"
-              title={player.nome}
-            >
+            <div className="truncate font-medium text-gray-950" title={player.nome}>
               {player.nome}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="sector-dot" style={{ background: corDoSetor(player.posicao), width: 7, height: 7 }} aria-hidden />
               {(t.positions as any)[player.posicao] ?? player.posicao}
             </div>
           </div>
         </div>
       </td>
 
-      <td className={tdBaseClasses}>
-        <span
-          className="inline-block truncate max-w-40"
-          title={player.clubeNome}
-        >
-          {player.clubeNome || "—"}
+      <td className={td}>
+        <span className="inline-block max-w-44 truncate" title={player.clubeNome ?? ""}>
+          {player.clubeRef?.nome ?? player.clubeNome ?? "—"}
         </span>
       </td>
 
-      <td className={tdBaseClasses}>{player.idade}</td>
+      <td className={`${td} num`}>{player.idade ?? "—"}</td>
 
-      <td className={tdBaseClasses}>
-        <div className="flex items-center gap-2.5 text-gray-900">
-          <img
-            src={leftFootSrc}
-            alt=""
-            aria-hidden
-            className={isDomDireito ? "h-4 w-4" : "h-[22px] w-[22px]"}
-            onError={(e) => (e.currentTarget.src = FALLBACK_SEC)}
-          />
-          <img
-            src={rightFootSrc}
-            alt=""
-            aria-hidden
-            className={isDomDireito ? "h-[22px] w-[22px]" : "h-4 w-4"}
-            onError={(e) => (e.currentTarget.src = FALLBACK_DOM)}
-          />
-          <span className="ml-1 font-bold">{player.peDominante}</span>
+      <td className={td}>{player.peDominante ? (t.ui.pe as any)[player.peDominante] ?? player.peDominante : "—"}</td>
+
+      <td className={`${td} num`}>{player.altura ? `${num(player.altura, L, 2)} m` : "—"}</td>
+
+      <td className={td}>
+        <div className="flex items-center gap-2">
+          <span className="num whitespace-nowrap">{dataCurta(player.contratoFim, L)}</span>
+          <ContractBadge fim={player.contratoFim} compact />
         </div>
       </td>
 
-      <td className={tdBaseClasses}>{altura}</td>
-
-      <td className={tdBaseClasses}>
-        <span className="truncate inline-block max-w-40" title={situacao}>
-          {situacao}
-        </span>
+      <td className={`${td} num whitespace-nowrap text-right font-medium text-gray-950`}>
+        {temValor ? eurMi(player.valorMercado, L) : "—"}
       </td>
 
-      <td className={tdBaseClasses}>
-        <span
-          className={
-            temValor
-              ? "whitespace-nowrap font-extrabold text-green-600"
-              : "text-slate-500"
-          }
-        >
-          {valorTxt}
-        </span>
+      <td className={td}>
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--surface-sunken)]" aria-hidden>
+            {posse !== null ? (
+              <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(0, Math.min(100, posse))}%` }} />
+            ) : null}
+          </div>
+          <span className="num w-10 text-right">{posse !== null ? `${num(posse, L, 0)}%` : "—"}</span>
+        </div>
       </td>
 
-      <td className={tdBaseClasses}>{possePct}</td>
+      <td className={`${td} w-12 pr-2`} onClick={(e) => e.stopPropagation()}>
+        <StarButton id={player.id} nome={player.nome} />
+      </td>
     </tr>
   );
 }

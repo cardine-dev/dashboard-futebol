@@ -9,3 +9,10 @@ node_modules
 .vercel
 .env*.local
 .venv
+# escudos de clubes reais ficam só local (repo público)
+public/assets/clubes/*
+!public/assets/clubes/escudo-demo.svg
+
+# logs locais do dev server
+.dev-server*.log
+tsconfig.tsbuildinfo

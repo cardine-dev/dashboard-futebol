@@ -8,9 +8,10 @@ import PlayerRow from "@/components/PlayerRow";
 import JogadoresFilterDrawer from "@/components/JogadoresFilter";
 import { NONE_AGENCY, type JogadoresFilters } from "@/components/Atoms/filter/utils";
 import type { Jogador } from "@/type/jogador";
-import { LayoutGrid, List, SlidersHorizontal } from "lucide-react";
+import { Download, LayoutGrid, List, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import { SETORES, SETOR_COR, setorDe, type Setor } from "@/lib/ui/sector";
+import { mesesAte } from "@/lib/ui/format";
 
-import ExportPrintButton from "@/components/ExportPrintButton";
 import { useDashboardPdfExport } from "@/hooks/useDashboardPdfExport";
 import { useI18n } from "@/contexts/I18nContext";
 
@@ -20,8 +21,8 @@ import { useI18n } from "@/contexts/I18nContext";
 function ErrorFallback({ err }: { err?: any }) {
   const { t } = useI18n();
   return (
-    <section className="w-full bg-gray-50 p-6">
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <section className="w-full">
+      <div className="surface p-4">
         <h3 className="mb-2 font-bold">{t.jogadores.erroCarregar}</h3>
         <pre className="whitespace-pre-wrap wrap-break-word text-xs text-red-800">
           {String(err?.message ?? err ?? t.jogadores.erroDesconhecido)}
@@ -264,6 +265,37 @@ export default function JogadoresPage() {
 
   const filtered = useMemo(() => applyJogadoresFilters(jogadores, filters), [jogadores, filters]);
 
+  // Busca rápida, setor e ordenação: camada leve por cima dos filtros do painel lateral.
+  const [q, setQ] = useState("");
+  const [setor, setSetor] = useState<Setor | "ALL">("ALL");
+  const [sort, setSort] = useState<"valor" | "idade" | "nome" | "contrato">("valor");
+  useEffect(() => {
+    // /jogadores?sort=contrato (atalho do alerta de contratos no dashboard)
+    const v = new URLSearchParams(window.location.search).get("sort");
+    if (v === "contrato" || v === "idade" || v === "nome" || v === "valor") setSort(v);
+  }, []);
+  const visible = useMemo(() => {
+    const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const nq = norm(q.trim());
+    const out = filtered.filter((p) => {
+      if (setor !== "ALL" && setorDe(p.posicao) !== setor) return false;
+      if (!nq) return true;
+      return norm(`${p.nome} ${p.clubeNome ?? ""} ${p.representacao ?? ""}`).includes(nq);
+    });
+    const cmp: Record<string, (a: Jogador, b: Jogador) => number> = {
+      valor: (a, b) => (Number(b.valorMercado) || 0) - (Number(a.valorMercado) || 0),
+      idade: (a, b) => (a.idade ?? 99) - (b.idade ?? 99),
+      nome: (a, b) => a.nome.localeCompare(b.nome),
+      contrato: (a, b) => (mesesAte(a.contratoFim) ?? 999) - (mesesAte(b.contratoFim) ?? 999),
+    };
+    return [...out].sort(cmp[sort]);
+  }, [filtered, q, setor, sort]);
+  const sectorCount = useMemo(() => {
+    const c: Record<string, number> = { ALL: filtered.length };
+    for (const p of filtered) c[setorDe(p.posicao)] = (c[setorDe(p.posicao)] ?? 0) + 1;
+    return c;
+  }, [filtered]);
+
   const activeFiltersCount = useMemo(() => {
     let n = 0;
 
@@ -307,7 +339,7 @@ export default function JogadoresPage() {
       blockSelector: `[data-pdf-block="true"]`,
       header: {
         title: t.jogadores.title,
-        subtitle: `${t.jogadores.modo}: ${view} • ${t.jogadores.filtrosLabel}: ${activeFiltersCount} • ${t.jogadores.mostrando}: ${filtered.length}`,
+        subtitle: `${t.jogadores.modo}: ${view} • ${t.jogadores.filtrosLabel}: ${activeFiltersCount} • ${t.jogadores.mostrando}: ${visible.length}`,
         rightText: new Date().toISOString().slice(0, 10),
       },
       footer: {
@@ -316,7 +348,7 @@ export default function JogadoresPage() {
         ofLabel: t.pdfExport.de,
       },
     });
-  }, [exportPdf, view, activeFiltersCount, filtered.length]);
+  }, [exportPdf, view, activeFiltersCount, visible.length]);
 
   useEffect(() => {
     let active = true;
@@ -385,77 +417,49 @@ export default function JogadoresPage() {
   }, []);
 
   const headerActions = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      <ExportPrintButton
-        onClick={handleExport}
-        loading={exporting}
-        disabled={loading || exporting || !!error}
-        data-no-export="true"
-      />
-
+    <>
       <button
         type="button"
         onClick={() => setFiltersOpen(true)}
         data-no-export="true"
-        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-gray-50"
+        className="btn btn-ghost cursor-pointer"
       >
-        <SlidersHorizontal size={16} />
+        <SlidersHorizontal size={16} aria-hidden />
         {t.jogadores.filtros}
         {activeFiltersCount > 0 && (
-          <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#64748B] px-1.5 text-xs font-bold text-black">
+          <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-[var(--accent)] px-1.5 text-[11px] font-semibold text-[var(--accent-ink)]">
             {activeFiltersCount}
           </span>
         )}
       </button>
 
-      <div className="hidden text-sm text-gray-500 sm:block" data-no-export="true">
-        {loading ? t.common.carregando : `${filtered.length} / ${jogadores.length}`}
-      </div>
-
-      <div
-        className="inline-flex overflow-hidden rounded-lg border border-gray-200 bg-white"
-        role="group"
-        aria-label={t.jogadores.alternarVisualizacao}
-        data-no-export="true"
-      >
-        <button
-          type="button"
-          className={[
-            "flex cursor-pointer items-center gap-1.5 border-none px-3 py-2 text-sm font-medium transition-colors duration-150 hover:bg-gray-100",
-            view === "grid" ? "bg-[#64748B] font-bold text-black" : "text-slate-900",
-          ].join(" ")}
-          onClick={() => setView("grid")}
-          aria-pressed={view === "grid"}
-          title={t.jogadores.exibirCards}
-        >
-          <LayoutGrid size={16} />
+      <div className="seg" role="group" aria-label={t.jogadores.alternarVisualizacao} data-no-export="true">
+        <button type="button" onClick={() => setView("grid")} aria-pressed={view === "grid"} title={t.jogadores.exibirCards} className="inline-flex items-center gap-1.5 !py-1.5">
+          <LayoutGrid size={14} aria-hidden />
           {t.jogadores.cards}
         </button>
-
-        <button
-          type="button"
-          className={[
-            "flex cursor-pointer items-center gap-1.5 border-none px-3 py-2 text-sm font-medium transition-colors duration-150 hover:bg-gray-100",
-            view === "list" ? "bg-[#64748B] font-bold text-black" : "text-slate-900",
-          ].join(" ")}
-          onClick={() => setView("list")}
-          aria-pressed={view === "list"}
-          title={t.jogadores.exibirLista}
-        >
-          <List size={16} />
+        <button type="button" onClick={() => setView("list")} aria-pressed={view === "list"} title={t.jogadores.exibirLista} className="inline-flex items-center gap-1.5 !py-1.5">
+          <List size={14} aria-hidden />
           {t.jogadores.lista}
         </button>
       </div>
 
-      <div className="text-sm text-gray-500 sm:hidden" data-no-export="true">
-        {loading ? t.common.carregando : `${filtered.length} / ${jogadores.length}`}
-      </div>
-    </div>
+      <button
+        type="button"
+        onClick={handleExport}
+        disabled={loading || exporting || !!error}
+        data-no-export="true"
+        className="btn btn-dark cursor-pointer"
+      >
+        {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} aria-hidden />}
+        {exporting ? t.exportPdf.gerando : t.exportPdf.exportar}
+      </button>
+    </>
   );
 
   return (
     <PageErrorBoundary>
-      <section className="w-full bg-gray-50 p-6">
+      <section className="w-full">
         <PageTitle
           base={t.common.principal}
           title={t.jogadores.title}
@@ -469,23 +473,110 @@ export default function JogadoresPage() {
           </div>
         ) : null}
 
-        {loading && <div className="mt-4 text-sm text-gray-600">{t.jogadores.carregando}</div>}
+        <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" data-no-export="true">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t.ui.sectorFilter}>
+            {(["ALL", ...SETORES] as const).map((s) => {
+              const active = setor === s;
+              const label = s === "ALL" ? t.ui.todos : (t.ui.sector as any)[s];
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSetor(s)}
+                  aria-pressed={active}
+                  className={[
+                    "inline-flex h-8 items-center gap-2 rounded-full px-3 text-[13px] transition-[background-color,box-shadow,color] duration-150 cursor-pointer",
+                    active
+                      ? "bg-[var(--ink)] text-white shadow-[var(--shadow-btn)]"
+                      : "bg-[var(--surface)] text-gray-700 shadow-[var(--shadow-1)] hover:text-gray-950",
+                  ].join(" ")}
+                >
+                  {s !== "ALL" ? <span className="sector-dot" style={{ background: SETOR_COR[s], boxShadow: "none" }} aria-hidden /> : null}
+                  {label}
+                  <span className={["num text-[11px]", active ? "text-white/70" : "text-gray-500"].join(" ")}>{sectorCount[s] ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        {error && !loading && (
-          <div className="mt-4 text-sm text-red-600">{t.common.erro}: {error}</div>
+          <div className="flex items-center gap-2">
+            <label className="relative block w-full lg:w-72">
+              <span className="sr-only">{t.ui.compare.buscar}</span>
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t.ui.compare.buscar}
+                className="input !h-9 !pl-9 !pr-8"
+              />
+              {q ? (
+                <button type="button" onClick={() => setQ("")} aria-label={t.ui.toast.fechar} className="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-gray-400 hover:bg-[var(--surface-sunken)] hover:text-gray-700 cursor-pointer">
+                  <X size={13} />
+                </button>
+              ) : null}
+            </label>
+            <label className="sr-only" htmlFor="sort-jog">{t.ui.ordenar}</label>
+            <select
+              id="sort-jog"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as any)}
+              className="input !h-9 !w-auto cursor-pointer"
+            >
+              <option value="valor">{t.ui.ordem.valor}</option>
+              <option value="idade">{t.ui.ordem.idade}</option>
+              <option value="contrato">{t.ui.ordem.contrato}</option>
+              <option value="nome">{t.ui.ordem.nome}</option>
+            </select>
+            <span className="num hidden whitespace-nowrap text-[13px] text-gray-500 sm:inline">
+              {loading ? "…" : `${visible.length} / ${jogadores.length}`}
+            </span>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4" aria-busy="true" aria-label={t.jogadores.carregando}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="surface flex h-[248px] flex-col gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="skeleton h-14 w-14 !rounded-full" />
+                  <div className="flex-1 space-y-2"><div className="skeleton h-4 w-3/4" /><div className="skeleton h-3 w-1/2" /></div>
+                </div>
+                <div className="skeleton mt-4 h-6 w-1/2" />
+                <div className="skeleton h-1.5 w-full" />
+                <div className="skeleton mt-auto h-4 w-2/3" />
+              </div>
+            ))}
+          </div>
         )}
 
-        {!loading && !error && filtered.length === 0 && (
-          <div className="mt-4 text-sm text-gray-600">{t.jogadores.nenhumJogador}</div>
+        {error && !loading && (
+          <div role="alert" className="surface mt-4 p-6 text-sm text-[var(--bad)]">{t.common.erro}: {error}</div>
+        )}
+
+        {!loading && !error && visible.length === 0 && (
+          <div className="surface mt-4 grid place-items-center px-6 py-16 text-center">
+            <p className="text-[15px] font-medium text-gray-900">{t.jogadores.nenhumJogador}</p>
+            <button
+              type="button"
+              className="btn btn-ghost mt-4 cursor-pointer"
+              onClick={() => {
+                setQ("");
+                setSetor("ALL");
+              }}
+            >
+              {t.ui.limparFiltros}
+            </button>
+          </div>
         )}
 
         {/* ESCOPO EXPORTÁVEL */}
         <div ref={exportRef} className="mt-4" data-export-scope="jogadores">
-          {!loading && !error && filtered.length > 0 && (
+          {!loading && !error && visible.length > 0 && (
             <>
+              <h2 className="sr-only">{t.jogadores.title}</h2>
               {view === "grid" ? (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 overflow-x-hidden">
-                  {filtered.map((p) => (
+                <div className="stagger grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+                  {visible.map((p) => (
                     <div key={p.id} data-pdf-block="true">
                       <Card player={p} />
                     </div>
@@ -493,46 +584,42 @@ export default function JogadoresPage() {
                 </div>
               ) : (
                 <div
-                  className="overflow-x-auto rounded-[10px] border border-gray-200 bg-white"
+                  className="surface overflow-x-auto"
                   data-export-scroll="true"
                 >
-                  <table className="w-full border-collapse bg-white">
+                  <table className="w-full border-collapse">
                     <thead>
                       <tr>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
                           {t.jogadores.jogador}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
                           {t.jogadores.clube}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
                           {t.jogadores.idade}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
                           {t.jogadores.pe}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
                           {t.jogadores.altura}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
-                          {t.jogadores.situacao}
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
+                          {t.ui.compare.contrato}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-right text-[12px] font-medium text-gray-500">
                           {t.jogadores.valor}
                         </th>
-                        <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-900">
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-4 py-2.5 text-left text-[12px] font-medium text-gray-500">
                           {t.jogadores.posse}
                         </th>
+                        <th className="border-b border-[var(--hairline)] bg-[var(--surface-2)] px-2 py-2.5 text-left text-[12px] font-medium text-gray-500" aria-label="★" />
                       </tr>
 
-                      <tr className="h-0">
-                        <th colSpan={8} className="h-0 border-none p-0">
-                          <div className="block h-[3px] w-full bg-[#64748B]" />
-                        </th>
-                      </tr>
                     </thead>
 
-                    <tbody>{filtered.map((p) => <PlayerRow key={p.id} player={p} />)}</tbody>
+                    <tbody>{visible.map((p) => <PlayerRow key={p.id} player={p} />)}</tbody>
                   </table>
                 </div>
               )}

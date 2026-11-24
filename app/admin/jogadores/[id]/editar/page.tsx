@@ -10,6 +10,7 @@ import AdminButton from "@/components/Atoms/AdminButton";
 import SuccessDialog from "@/components/Atoms/SuccessDialog";
 import JogadorForm, { type JogadorFormModel } from "@/components/JogadorForm";
 import { useI18n } from "@/contexts/I18nContext";
+import { invalidatePlayers } from "@/lib/client/playersStore";
 
 export default function EditarJogadorPage() {
   const { t } = useI18n();
@@ -91,6 +92,7 @@ export default function EditarJogadorPage() {
 
       const data = await res.json().catch(() => ({}));
       const j = (data.jogador ?? data) as JogadorFormModel;
+      invalidatePlayers();
 
       setForm({
         ...j,
@@ -112,7 +114,7 @@ export default function EditarJogadorPage() {
 
   if (loading) {
     return (
-      <section className="mx-auto w-full max-w-5xl bg-gray-50 p-6">
+      <section className="mx-auto w-full max-w-5xl">
         <div className="text-sm text-gray-700">{t.adminEditarJogador.carregando}</div>
       </section>
     );
@@ -120,7 +122,7 @@ export default function EditarJogadorPage() {
 
   if (!form) {
     return (
-      <section className="mx-auto w-full max-w-5xl bg-gray-50 p-6">
+      <section className="mx-auto w-full max-w-5xl">
         <h1 className="mb-2 text-lg font-bold text-slate-900">
           {t.adminEditarJogador.erroCarregar}
         </h1>
@@ -144,7 +146,7 @@ export default function EditarJogadorPage() {
         {t.adminEditarJogador.verJogador}
       </button>
 
-      <AdminButton label={t.adminEditarJogador.voltar} icon={ArrowLeft} href="/admin/jogadores" />
+      <AdminButton label={t.adminEditarJogador.voltar} icon={ArrowLeft} variant="ghost" href="/admin/jogadores" />
     </div>
   );
 
@@ -163,7 +165,7 @@ export default function EditarJogadorPage() {
         }}
       />
 
-      <section className="mx-auto w-full max-w-5xl bg-gray-50 p-6">
+      <section className="mx-auto w-full max-w-5xl">
         <PageTitle
           base="Admin"
           title={t.adminEditarJogador.title}

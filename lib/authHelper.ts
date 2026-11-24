@@ -1,10 +1,8 @@
-import { NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
+import { NextResponse } from "next/server";
+import { AUTH_COOKIE, verifySessionToken, type AppRole } from "@/lib/jwt";
+import { prisma } from "@/lib/prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_in_prod";
-const COOKIE_NAME = "app_token";
-
-type Decoded = { sub: string; role: "ADMIN" | "CLIENT" };
+export type AuthUser = { id: string; role: AppRole; exp: number | null };
 
 function extractBearerToken(authHeader?: string | null): string | null {
   if (!authHeader) return null;
@@ -12,28 +10,63 @@ function extractBearerToken(authHeader?: string | null): string | null {
   return match?.[1] ?? null;
 }
 
-export function getTokenFromReq(req: NextRequest): string | null {
+function readCookie(header: string | null, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx < 0) continue;
+    if (part.slice(0, idx).trim() === name) {
+      const raw = part.slice(idx + 1).trim();
+      try {
+        return decodeURIComponent(raw) || null;
+      } catch {
+        return raw || null;
+      }
+    }
+  }
+  return null;
+}
+
+/** Token da requisição: `Authorization: Bearer` primeiro, depois o cookie httpOnly. */
+export function getTokenFromReq(req: Request): string | null {
   const bearer = extractBearerToken(req.headers.get("authorization"));
   if (bearer) return bearer;
-  return req.cookies.get(COOKIE_NAME)?.value ?? null;
+  const viaNext = (req as { cookies?: { get?: (n: string) => { value?: string } | undefined } }).cookies
+    ?.get?.(AUTH_COOKIE)?.value;
+  return viaNext ?? readCookie(req.headers.get("cookie"), AUTH_COOKIE);
 }
 
-export function verifyToken(token: string): Decoded | null {
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    const sub = typeof payload?.sub === "string" ? payload.sub : null;
-    const role = payload?.role === "ADMIN" || payload?.role === "CLIENT" ? payload.role : null;
-    if (!sub || !role) return null;
-    return { sub, role };
-  } catch {
-    return null;
+/** Usuário da sessão ou null (sem gerar resposta). */
+export async function getSessionUser(req: Request): Promise<AuthUser | null> {
+  const claims = await verifySessionToken(getTokenFromReq(req));
+  return claims ? { id: claims.sub, role: claims.role, exp: claims.exp } : null;
+}
+
+/**
+ * Guard único das rotas de API.
+ *
+ *   const auth = await requireUser(req, { role: "ADMIN" });
+ *   if (auth instanceof NextResponse) return auth;
+ *   const { user } = auth;
+ *
+ * Sem sessão válida ou usuário inexistente → 401. Role exigida (lida do banco) e diferente → 403.
+ */
+export async function requireUser(
+  req: Request,
+  opts: { role?: AppRole } = {},
+): Promise<{ user: AuthUser } | NextResponse> {
+  const session = await getSessionUser(req);
+  if (!session) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
-}
-
-/** Returns userId string or null if unauthenticated */
-export function getUserId(req: NextRequest): string | null {
-  const token = getTokenFromReq(req);
-  if (!token) return null;
-  const decoded = verifyToken(token);
-  return decoded?.sub ?? null;
+  // O token sozinho não basta: usuário apagado perde acesso na hora, e mudança de role vale já.
+  const row = await prisma.user.findUnique({ where: { id: session.id }, select: { id: true, role: true } });
+  if (!row) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
+  const user: AuthUser = { ...session, role: row.role as AppRole };
+  if (opts.role && user.role !== opts.role) {
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+  }
+  return { user };
 }

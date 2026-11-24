@@ -13,7 +13,8 @@ import {
   GraduationCap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Role } from "@prisma/client";
+/** Espelho local do enum Role do Prisma — código client não importa @prisma/client. */
+type Role = "ADMIN" | "CLIENT";
 
 export interface NavItem {
   to: string;

@@ -41,15 +41,15 @@ export function WidgetCard({
   const bodyHeightClass = getBodyHeightClass(effectiveSize, isMap);
 
   return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="surface min-w-0 p-4 sm:p-5">
       {!isMap && (
-        <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">
               {widget.title}
             </h3>
             {widget.description && (
-              <p className="text-xs text-slate-500">
+              <p className="mt-0.5 text-[13px] leading-5 text-gray-500">
                 {widget.description}
               </p>
             )}
@@ -91,7 +91,7 @@ export function WidgetCard({
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -113,37 +113,18 @@ function SizeToggle({
   ];
 
   return (
-    <div
-      className={[
-        "inline-flex items-center",
-        "flex-nowrap whitespace-nowrap",
-        "rounded-lg border border-slate-200 bg-white p-1",
-        "shadow-sm",
-      ].join(" ")}
-      aria-label="Widget size"
-    >
-      {items.map((it) => {
-        const active = it.id === value;
-
-        return (
-          <button
-            key={it.id}
-            type="button"
-            onClick={() => onChange(it.id)}
-            className={[
-              "h-7 w-10",
-              "rounded-md text-[11px] font-bold",
-              "transition focus:outline-none",
-              active
-                ? "bg-[#64748B] text-slate-900"
-                : "text-slate-700 hover:bg-slate-50",
-            ].join(" ")}
-            aria-pressed={active}
-          >
-            {it.label}
-          </button>
-        );
-      })}
+    <div className="seg" role="group" aria-label="Widget size" data-no-export="true">
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          onClick={() => onChange(it.id)}
+          aria-pressed={it.id === value}
+          className="num !px-2 !text-[10.5px]"
+        >
+          {it.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -160,9 +141,9 @@ function getBodyHeightClass(size: WidgetSize, isMap: boolean) {
       case "md":
         return "h-[520px]";
       case "lg":
-        return "h-[660px]";
+        return "h-[540px]";
       default:
-        return "h-[560px]";
+        return "h-[500px]";
     }
   }
 
@@ -184,8 +165,10 @@ function getBodyHeightClass(size: WidgetSize, isMap: boolean) {
 
 function Skeleton() {
   return (
-    <div className="h-full w-full animate-pulse">
-      <div className="h-full w-full rounded-lg bg-slate-100" />
+    <div className="flex h-full w-full items-end gap-3 px-2 pb-6" aria-hidden>
+      {[46, 72, 58, 88, 64, 40, 76, 52].map((h, i) => (
+        <div key={i} className="skeleton flex-1" style={{ height: `${h}%` }} />
+      ))}
     </div>
   );
 }

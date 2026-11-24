@@ -43,7 +43,7 @@ export default function ConfirmDeleteDialog({
     <div className="fixed inset-0 z-50">
       {/* overlay */}
       <div
-        className="absolute inset-0 bg-black/45"
+        className="backdrop-in absolute inset-0 bg-[var(--scrim)] backdrop-blur-[2px]"
         onClick={() => {
           if (!loading) onCancel();
         }}
@@ -51,27 +51,27 @@ export default function ConfirmDeleteDialog({
 
       {/* modal */}
       <div className="absolute inset-0 grid place-items-center px-4">
-        <div className="w-full max-w-[520px] rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)] overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <div className="text-sm font-extrabold text-slate-900">{title || t.confirmDelete.titulo}</div>
+        <div role="alertdialog" aria-modal="true" className="overlay-in w-full max-w-[480px] overflow-hidden rounded-[16px] bg-[var(--surface)] shadow-[var(--shadow-3)]">
+          <div className="p-5 pb-3">
+            <div className="text-[16px] font-semibold tracking-[-0.01em] text-gray-950">{title || t.confirmDelete.titulo}</div>
             {description && (
-              <div className="mt-1 text-xs text-gray-600">{description}</div>
+              <div className="mt-1 text-[13px] leading-5 text-gray-600">{description}</div>
             )}
           </div>
 
-          <div className="p-4 space-y-3">
+          <div className="px-5 pb-4 space-y-3">
             {itemName && (
-              <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wider text-gray-500">
+              <div className="rounded-[10px] bg-[var(--surface-2)] px-3 py-2 ring-1 ring-[var(--hairline)]">
+                <div className="text-[11px] text-gray-500">
                   {t.confirmDelete.voceEstaDeletando}
                 </div>
-                <div className="text-sm font-bold text-slate-900">{itemName}</div>
+                <div className="text-sm font-medium text-gray-950">{itemName}</div>
               </div>
             )}
 
             <div className="text-xs text-gray-600">
               {t.confirmDelete.paraConfirmar}
-              <div className="mt-1 font-extrabold text-red-700 select-all">
+              <div className="num mt-1 font-semibold text-[var(--bad)] select-all">
                 {expectedPhrase}
               </div>
             </div>
@@ -80,7 +80,7 @@ export default function ConfirmDeleteDialog({
               value={text}
               onChange={(e) => setText(e.target.value)}
               disabled={loading}
-              className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/25 focus:border-red-500 placeholder:text-gray-400"
+              className="input focus:!border-[var(--bad)] focus:!ring-red-500/20"
               placeholder={t.confirmDelete.digiteAqui}
               autoFocus
             />
@@ -92,13 +92,13 @@ export default function ConfirmDeleteDialog({
             )}
           </div>
 
-          <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+          <div className="flex justify-end gap-2 border-t border-[var(--hairline)] bg-[var(--surface-2)] px-5 py-3">
             <button
               type="button"
               onClick={() => {
                 if (!loading) onCancel();
               }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 disabled:opacity-60"
+              className="btn btn-ghost cursor-pointer"
               disabled={loading}
             >
               {t.confirmDelete.cancelar}
@@ -118,7 +118,7 @@ export default function ConfirmDeleteDialog({
                   setLoading(false);
                 }
               }}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn cursor-pointer bg-[var(--bad)] text-white hover:bg-red-800"
             >
               {loading ? t.confirmDelete.deletando : t.confirmDelete.deletar}
             </button>

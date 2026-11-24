@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { AUTH_COOKIE, verifySessionToken } from "@/lib/jwt";
 
-const COOKIE_NAME = "app_token";
-
-// Em produção, JWT_SECRET tem que existir. Em dev, permite fallback.
-const JWT_SECRET = process.env.JWT_SECRET || null;
-const DEV_FALLBACK_SECRET = "dev_secret_change_in_prod";
+const COOKIE_NAME = AUTH_COOKIE;
 
 // Rotas públicas (nav não cobre isso, mas o app cobre)
 const PUBLIC_ROUTES_EXACT = new Set<string>(["/", "/login"]);
@@ -15,15 +11,14 @@ const PUBLIC_ROUTE_PREFIXES: string[] = []; // se tiver algo público com prefix
 // Admin-only baseado no nav: tudo que começa com /admin
 const ADMIN_PREFIX = "/admin";
 
-// Coisas que sempre passam
+// Coisas que sempre passam. /api fica fora daqui de propósito: cada handler
+// faz a própria checagem com requireUser() (lib/authHelper.ts) e responde 401/403 em JSON.
 const ALWAYS_ALLOW_PREFIXES = ["/_next", "/api", "/assets"];
 const ALWAYS_ALLOW_EXACT = ["/favicon.ico", "/robots.txt", "/sitemap.xml"];
 
 // Mantém compatibilidade: “qualquer path com ponto” era liberado antes.
 // Agora: liberamos isso somente se for request de asset (não HTML document).
 const ANY_DOT_FILE = /\.(.*)$/;
-
-type Decoded = { sub: string; role: string };
 
 function isAlwaysAllowed(pathname: string) {
   if (ALWAYS_ALLOW_PREFIXES.some((p) => pathname.startsWith(p))) return true;
@@ -62,25 +57,9 @@ function safeNext(path: string) {
   return path;
 }
 
-async function verifyToken(token: string): Promise<Decoded | null> {
-  try {
-    // fail-closed em produção se não tiver secret
-    if (!JWT_SECRET && process.env.NODE_ENV === "production") return null;
-
-    const secretValue = JWT_SECRET ?? DEV_FALLBACK_SECRET;
-    const secret = new TextEncoder().encode(secretValue);
-
-    const { payload } = await jwtVerify(token, secret);
-
-    const sub = typeof payload.sub === "string" ? payload.sub : null;
-    const role = typeof (payload as any).role === "string" ? (payload as any).role : null;
-
-    if (!sub || !role) return null;
-    return { sub, role };
-  } catch {
-    return null;
-  }
-}
+// Verificação única compartilhada com as rotas de API (lib/jwt.ts):
+// segredo JWT_SECRET, fallback só fora de produção, fail-closed em produção.
+const verifyToken = verifySessionToken;
 
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;

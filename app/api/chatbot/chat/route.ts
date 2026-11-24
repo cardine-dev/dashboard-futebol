@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { players, transferencias } from "@/lib/demo/dataset";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/authHelper";
+import { apiError } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +15,10 @@ export const dynamic = "force-dynamic";
 const fmtEur = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
-function buildAnswer(question: string): string {
+type PlayerLite = { nome: string; posicao: string; idade: number | null; valorMercado: number | null; possePct: number | null };
+type TransferLite = { valor: unknown };
+
+function buildAnswer(question: string, players: PlayerLite[], transferencias: TransferLite[]): string {
   const q = question.toLowerCase();
 
   const withValue = players.filter((p) => p.valorMercado != null);
@@ -65,8 +70,8 @@ function buildAnswer(question: string): string {
   }
 
   if (q.includes("mercado") || q.includes("transfer") || q.includes("comprador") || q.includes("pagando")) {
-    const withVal = transferencias.filter((t) => t.valor && t.valor > 0);
-    const avgFee = withVal.reduce((a, t) => a + (t.valor ?? 0), 0) / Math.max(withVal.length, 1);
+    const withVal = transferencias.map((t) => Number(t.valor)).filter((v) => Number.isFinite(v) && v > 0);
+    const avgFee = withVal.reduce((a, v) => a + v, 0) / Math.max(withVal.length, 1);
     return [
       "## Panorama de mercado (demo)",
       "",
@@ -90,24 +95,33 @@ function buildAnswer(question: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json().catch(() => ({} as any));
     const msgs = Array.isArray(body?.messages) ? body.messages : [];
     const lastUser = [...msgs].reverse().find((m: any) => m?.role === "user");
     const question = String(lastUser?.content ?? "");
 
+    // lê pelo mesmo client das outras rotas (vê jogadores/transferências criados na sessão)
+    const [players, transferencias] = await Promise.all([
+      prisma.player.findMany({
+        select: { nome: true, posicao: true, idade: true, valorMercado: true, possePct: true },
+      }),
+      prisma.transferencia.findMany({ select: { valor: true } }),
+    ]);
+
     // pequena latência pra simular processamento
     await new Promise((r) => setTimeout(r, 350));
 
     return NextResponse.json({
-      assistant_message: buildAnswer(question),
+      assistant_message: buildAnswer(question, players, transferencias),
       conversation_id: body?.conversation_id ?? null,
       demo: true,
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Falha ao processar (demo)." },
-      { status: 500 },
-    );
+  } catch (err) {
+    console.error("[api] POST /api/chatbot/chat:", err);
+    return apiError(500, "Falha ao processar (demo).");
   }
 }

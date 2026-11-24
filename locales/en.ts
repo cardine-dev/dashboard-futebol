@@ -1,6 +1,8 @@
 import type { Translations } from "./index";
+import { uiStrings } from "./ui";
 
 const en: Translations = {
+  ui: uiStrings.en,
   // Nav / Sidebar
   nav: {
     perfil: "Profile",
@@ -109,6 +111,7 @@ const en: Translations = {
     PD: "Right Winger",
     PE: "Left Winger",
     ATA: "Forward",
+    LAT: "Full-back",
   },
 
   // Foot

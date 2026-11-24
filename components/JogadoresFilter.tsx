@@ -24,6 +24,7 @@ import {
   BASE_YELLOW,
   type JogadoresFilters,
 } from "@/components/Atoms/filter/utils";
+import { useAuth } from "@/app/auth/AuthContext";
 
 type YesNo = "sim" | "nao";
 type CpfMode = "tem" | "nao_tem";
@@ -42,6 +43,8 @@ export default function JogadoresFilter({
   onChange: (v: JogadoresFilters) => void;
 }) {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const options = useMemo(() => buildFilterOptions(jogadores), [jogadores]);
 
   const [draft, setDraft] = useState<JogadoresFilters>(() => ({
@@ -469,16 +472,16 @@ export default function JogadoresFilter({
     <>
       <button
         type="button"
-        className="fixed inset-0 z-40 bg-black/25"
+        className="backdrop-in fixed inset-0 z-40 bg-[var(--scrim)] backdrop-blur-[1px]"
         onClick={() => onOpenChange(false)}
         aria-label={t.filter.fechar}
       />
 
       <aside
         className={cx(
-          "fixed right-0 top-0 z-50 h-full w-[440px] max-w-[94vw]",
-          "bg-white shadow-2xl border-l border-slate-100",
-          "rounded-l-2xl overflow-hidden",
+          "drawer-in fixed right-0 top-0 z-50 h-full w-[440px] max-w-[94vw]",
+          "bg-[var(--surface)] shadow-[var(--shadow-3)]",
+          "rounded-l-[18px] overflow-hidden",
         )}
       >
         {/* Header */}
@@ -488,15 +491,15 @@ export default function JogadoresFilter({
               <span
                 className="grid h-9 w-9 place-items-center rounded-xl border"
                 style={{
-                  backgroundColor: `${BASE_BLUE}10`,
-                  borderColor: `${BASE_BLUE}20`,
+                  backgroundColor: `color-mix(in oklab, var(--ink) 6%, transparent)`,
+                  borderColor: `color-mix(in oklab, var(--ink) 13%, transparent)`,
                 }}
               >
                 <SlidersHorizontal size={16} style={{ color: BASE_BLUE }} />
               </span>
 
               <div>
-                <div className="text-sm font-extrabold text-slate-900">{t.filter.filtros}</div>
+                <div className="text-sm font-semibold text-gray-950">{t.filter.filtros}</div>
                 <div className="text-xs text-slate-500">{t.filter.refine}</div>
               </div>
             </div>
@@ -515,9 +518,10 @@ export default function JogadoresFilter({
 
         {/* Body */}
         <div className="h-[calc(100%-132px)] overflow-y-auto px-4 py-4 space-y-5">
-          {/* Identidade / Cadastro */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-            <div className="text-sm font-extrabold text-slate-900">{t.filter.cpf}</div>
+          {/* Identidade / Cadastro (CPF só chega para admin) */}
+          {isAdmin ? (
+          <div className="surface p-4 shadow-sm space-y-3">
+            <div className="text-sm font-semibold text-gray-950">{t.filter.cpf}</div>
 
             <div className="flex flex-wrap gap-2">
               <Pill
@@ -536,10 +540,11 @@ export default function JogadoresFilter({
               </Pill>
             </div>
           </div>
+          ) : null}
 
           {/* Passaporte / Seleção */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-            <div className="text-sm font-extrabold text-slate-900">{t.filter.status}</div>
+          <div className="surface p-4 shadow-sm space-y-3">
+            <div className="text-sm font-semibold text-gray-950">{t.filter.status}</div>
 
             <div className="space-y-2">
               <div className="text-xs font-semibold text-slate-700">{t.filter.passaporteEuropeu}</div>
@@ -579,16 +584,16 @@ export default function JogadoresFilter({
           </div>
 
           {/* Faixa: idade / ano nasc */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="surface p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="text-sm font-extrabold text-slate-900">{t.filter.faixa}</div>
+              <div className="text-sm font-semibold text-gray-950">{t.filter.faixa}</div>
 
-              <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1">
+              <div className="inline-flex surface p-1">
                 <button
                   type="button"
                   onClick={() => setAgeMode("idade")}
                   className={cx(
-                    "cursor-pointer rounded-xl px-3 py-1.5 text-xs font-extrabold transition",
+                    "cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition",
                     (draft.ageMode ?? "idade") === "idade"
                       ? "text-black"
                       : "text-slate-700 hover:bg-slate-50",
@@ -606,7 +611,7 @@ export default function JogadoresFilter({
                   type="button"
                   onClick={() => setAgeMode("anoNascimento")}
                   className={cx(
-                    "cursor-pointer rounded-xl px-3 py-1.5 text-xs font-extrabold transition",
+                    "cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition",
                     (draft.ageMode ?? "idade") === "anoNascimento"
                       ? "text-black"
                       : "text-slate-700 hover:bg-slate-50",
@@ -626,7 +631,7 @@ export default function JogadoresFilter({
               <>
                 <div className="mb-3 text-xs text-slate-500">
                   {t.filter.range}{" "}
-                  <span className="font-extrabold text-slate-700">
+                  <span className="font-semibold text-slate-700">
                     {options.idadeMin}–{options.idadeMax}
                   </span>
                 </div>
@@ -663,7 +668,7 @@ export default function JogadoresFilter({
               <>
                 <div className="mb-3 text-xs text-slate-500">
                   {t.filter.range}{" "}
-                  <span className="font-extrabold text-slate-700">
+                  <span className="font-semibold text-slate-700">
                     {options.anoMin || "—"}–{options.anoMax || "—"}
                   </span>
                 </div>
@@ -700,9 +705,9 @@ export default function JogadoresFilter({
           </div>
 
           {/* Valor de mercado */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="surface p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="text-sm font-extrabold text-slate-900">{t.filter.valorMercado}</div>
+              <div className="text-sm font-semibold text-gray-950">{t.filter.valorMercado}</div>
 
               <Pill
                 active={!!draft.valorSemDefinicao}
@@ -714,9 +719,9 @@ export default function JogadoresFilter({
             </div>
 
             <div className="mb-3 text-xs text-slate-500">
-              {t.filter.unidade} <span className="font-extrabold text-slate-700">{t.filter.milhoesEur}</span>{" "}
-              — ex: <span className="font-extrabold text-slate-700">2,5</span> ={" "}
-              <span className="font-extrabold text-slate-700">
+              {t.filter.unidade} <span className="font-semibold text-slate-700">{t.filter.milhoesEur}</span>{" "}
+              — ex: <span className="font-semibold text-slate-700">2,5</span> ={" "}
+              <span className="font-semibold text-slate-700">
                 {moneyEURfromMilhoes(2.5)}
               </span>
             </div>
@@ -755,9 +760,9 @@ export default function JogadoresFilter({
           </div>
 
           {/* % Posse */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="surface p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="text-sm font-extrabold text-slate-900">{t.filter.posseBase}</div>
+              <div className="text-sm font-semibold text-gray-950">{t.filter.posseBase}</div>
 
               <Pill
                 active={!!draft.posseSemDefinicao}
@@ -769,8 +774,8 @@ export default function JogadoresFilter({
             </div>
 
             <div className="mb-3 text-xs text-slate-500">
-              {t.filter.unidade} <span className="font-extrabold text-slate-700">%</span> — {t.filter.range}{" "}
-              <span className="font-extrabold text-slate-700">
+              {t.filter.unidade} <span className="font-semibold text-slate-700">%</span> — {t.filter.range}{" "}
+              <span className="font-semibold text-slate-700">
                 {options.posseMin ?? 0}–{options.posseMax ?? 100}
               </span>
             </div>
@@ -809,9 +814,9 @@ export default function JogadoresFilter({
           </div>
 
           {/* Altura */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="surface p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="text-sm font-extrabold text-slate-900">{t.filter.altura}</div>
+              <div className="text-sm font-semibold text-gray-950">{t.filter.altura}</div>
 
               <Pill
                 active={!!draft.alturaSemDefinicao}
@@ -823,11 +828,11 @@ export default function JogadoresFilter({
             </div>
 
             <div className="mb-3 text-xs text-slate-500">
-              {t.filter.unidade} <span className="font-extrabold text-slate-700">cm</span>{" "}
+              {t.filter.unidade} <span className="font-semibold text-slate-700">cm</span>{" "}
               {options.alturaMin && options.alturaMax ? (
                 <>
                   — {t.filter.range}{" "}
-                  <span className="font-extrabold text-slate-700">
+                  <span className="font-semibold text-slate-700">
                     {options.alturaMin}–{options.alturaMax}
                   </span>
                 </>
@@ -868,8 +873,8 @@ export default function JogadoresFilter({
           </div>
 
           {/* Posição */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 text-sm font-extrabold text-slate-900">{t.filter.posicao}</div>
+          <div className="surface p-4 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-gray-950">{t.filter.posicao}</div>
             <div className="flex flex-wrap gap-2">
               {options.posicoes.slice(0, 60).map((p) => (
                 <Pill
@@ -885,7 +890,7 @@ export default function JogadoresFilter({
           </div>
 
           {/* Clube */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="surface p-4 shadow-sm">
             <MultiSelectSearch
               label={t.filter.clube}
               placeholder={t.filter.buscarClube}
@@ -913,8 +918,8 @@ export default function JogadoresFilter({
 
                   <span
                     className={cx(
-                      "text-xs font-extrabold",
-                      active ? "text-slate-900" : "text-slate-400",
+                      "text-xs font-semibold",
+                      active ? "text-gray-950" : "text-slate-400",
                     )}
                   >
                     {active ? t.filter.selecionado : ""}
@@ -925,9 +930,9 @@ export default function JogadoresFilter({
           </div>
 
           {/* Agência */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+          <div className="surface p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-extrabold text-slate-900">{t.filter.agencia}</div>
+              <div className="text-sm font-semibold text-gray-950">{t.filter.agencia}</div>
 
               <Pill
                 active={hasNoneAgency}
@@ -960,8 +965,8 @@ export default function JogadoresFilter({
           </div>
 
           {/* Pé dominante */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 text-sm font-extrabold text-slate-900">{t.filter.peDominante}</div>
+          <div className="surface p-4 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-gray-950">{t.filter.peDominante}</div>
             <div className="flex gap-2">
               {[
                 { key: "D", label: t.filter.direito },

@@ -59,6 +59,19 @@ function normalizeContinentCode(x: unknown): ContinentCode | null {
   return null;
 }
 
+
+/* Coroplético de um tom só (acento do clube): mais atletas = mais escuro. */
+const EMPTY_FILL = "#e9ece8";
+function heatFill(count: number, max: number) {
+  if (!count || !max) return EMPTY_FILL;
+  const pct = Math.round(38 + 62 * Math.sqrt(count / max));
+  return `color-mix(in oklab, var(--accent) ${pct}%, #f1f3ef)`;
+}
+function heatHover(count: number, max: number) {
+  if (!count || !max) return EMPTY_FILL;
+  return `color-mix(in oklab, var(--accent) 100%, black 18%)`;
+}
+
 export default function MapCanvas(props: Props) {
   const { t } = useI18n();
   const {
@@ -80,6 +93,8 @@ export default function MapCanvas(props: Props) {
   } = props;
 
   const geoData = MAP_DATA[mode];
+  const maxCountry = Math.max(0, ...Object.values(byCountry ?? {}));
+  const maxUF = Math.max(0, ...Object.values(byUF ?? {}));
 
   if (!geoData) {
     return (
@@ -147,17 +162,18 @@ export default function MapCanvas(props: Props) {
                   }}
                   style={{
                     default: {
-                      fill: clickable ? "#64748B" : "#e2e8f0",
+                      fill: clickable ? "color-mix(in oklab, var(--accent) 72%, #f1f3ef)" : EMPTY_FILL,
                       outline: "none",
                       cursor: clickable ? "pointer" : "default",
+                      transition: "fill 160ms ease-out",
                     },
                     hover: {
-                      fill: clickable ? "#64748B" : "#e2e8f0",
+                      fill: clickable ? "var(--accent)" : EMPTY_FILL,
                       outline: "none",
                       cursor: clickable ? "pointer" : "default",
                     },
                     pressed: {
-                      fill: clickable ? "#64748B" : "#e2e8f0",
+                      fill: clickable ? "var(--accent)" : EMPTY_FILL,
                       outline: "none",
                     },
                   }}
@@ -192,17 +208,18 @@ export default function MapCanvas(props: Props) {
                   }}
                   style={{
                     default: {
-                      fill: clickable ? "#64748B" : "#e2e8f0",
+                      fill: heatFill(count, maxCountry),
                       outline: "none",
                       cursor: clickable ? "pointer" : "default",
+                      transition: "fill 160ms ease-out",
                     },
                     hover: {
-                      fill: clickable ? "#64748B" : "#e2e8f0",
+                      fill: heatHover(count, maxCountry),
                       outline: "none",
                       cursor: clickable ? "pointer" : "default",
                     },
                     pressed: {
-                      fill: clickable ? "#64748B" : "#e2e8f0",
+                      fill: heatHover(count, maxCountry),
                       outline: "none",
                     },
                   }}
@@ -242,19 +259,20 @@ export default function MapCanvas(props: Props) {
                 }}
                 style={{
                   default: {
-                    fill: clickable ? "#64748B" : "#e2e8f0",
+                    fill: heatFill(count, maxUF),
                     stroke: "#ffffff",
+                    transition: "fill 160ms ease-out",
                     strokeWidth: 0.6,
                     outline: "none",
                     cursor: clickable ? "pointer" : "default",
                   },
                   hover: {
-                    fill: clickable ? "#64748B" : "#e2e8f0",
+                    fill: heatHover(count, maxUF),
                     outline: "none",
                     cursor: clickable ? "pointer" : "default",
                   },
                   pressed: {
-                    fill: clickable ? "#64748B" : "#e2e8f0",
+                    fill: heatHover(count, maxUF),
                     outline: "none",
                   },
                 }}

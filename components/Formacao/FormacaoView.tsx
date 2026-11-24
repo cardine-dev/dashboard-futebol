@@ -25,8 +25,8 @@ import type {
 } from "@/type/formacao";
 
 /** Cor de destaque do app (slate-700) e cinza de contexto (slate-400). */
-const DESTAQUE = "#334155";
-const CONTEXTO = "#94a3b8";
+const DESTAQUE = "var(--accent)";
+const CONTEXTO = "var(--color-gray-400)";
 const LOCALES: Record<string, string> = { pt: "pt-BR", en: "en-US", es: "es-ES" };
 
 type TF = Translations["formacao"];
@@ -124,7 +124,7 @@ function Cartao({
   direita?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <section className="overflow-hidden surface">
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 px-5 py-4">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>
@@ -166,13 +166,10 @@ function Destaque({ dados }: { dados: FormacaoResponse }) {
   const max = Math.max(...comparados.map((n) => n.chance), 0.01);
 
   return (
-    <section
-      className="rounded-2xl border border-gray-200 bg-white shadow-sm"
-      style={{ borderLeft: `3px solid ${DESTAQUE}` }}
-    >
+    <section className="surface">
       <div className="grid grid-cols-1 gap-8 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+          <p className="text-[12px] font-medium text-gray-500">
             {dados.seuClube.nome} · {preencher(tf.nivelN, { n: nivel })} ·{" "}
             {tf.nivelDesc[String(nivel) as NivelChave]}
           </p>
@@ -181,7 +178,7 @@ function Destaque({ dados }: { dados: FormacaoResponse }) {
               texto={tf.heroFrase}
               nos={{
                 x: (
-                  <span className="text-5xl font-bold leading-none" style={{ color: DESTAQUE }}>
+                  <span className="num text-5xl font-semibold leading-none tracking-[-0.04em]" style={{ color: DESTAQUE }}>
                     {f.cada100(seu.chance)}
                   </span>
                 ),
@@ -209,8 +206,8 @@ function Destaque({ dados }: { dados: FormacaoResponse }) {
           </p>
         </div>
 
-        <div className="lg:border-l lg:border-gray-100 lg:pl-8">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{tf.heroComparaTitulo}</p>
+        <div className="lg:border-l lg:border-[var(--hairline)] lg:pl-8">
+          <p className="text-[12px] font-medium text-gray-500">{tf.heroComparaTitulo}</p>
           <ul className="mt-4 space-y-4">
             {comparados.map((n) => {
               const ehSeu = n.nivel === nivel;
@@ -279,8 +276,12 @@ function NiveisBarras({ niveis, seuNivel }: { niveis: ChanceNivel[]; seuNivel: n
           >
             <div className="flex min-w-0 items-center gap-2">
               <span
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={{ background: seu ? DESTAQUE : CONTEXTO }}
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                style={
+                  seu
+                    ? { background: DESTAQUE, color: "var(--accent-ink)" }
+                    : { background: "var(--surface-sunken)", color: "var(--ink-2)", boxShadow: "inset 0 0 0 1px var(--hairline)" }
+                }
               >
                 {n.nivel}
               </span>
@@ -397,7 +398,7 @@ function Clubes({ clubes, mediaNivel }: { clubes: ClubeComparado[]; mediaNivel: 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[480px] text-sm">
           <thead>
-            <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+            <tr className="text-left text-[11px] font-bold text-gray-500">
               <th className="py-2 pr-4">{tf.colClube}</th>
               <th className="py-2 pr-4" colSpan={2}>
                 {tf.colChance}
@@ -571,7 +572,7 @@ function DetalheAtleta({ atleta }: { atleta: AtletaElenco }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] text-xs">
           <thead>
-            <tr className="text-left font-bold uppercase tracking-wide text-gray-500">
+            <tr className="text-left font-bold text-gray-500">
               <th className="py-1.5 pr-3">{tf.colVariavel}</th>
               <th className="py-1.5 pr-3 text-right">{tf.colValorBruto}</th>
               <th className="py-1.5 pr-3 text-right">{tf.colValorUsado}</th>
@@ -706,7 +707,7 @@ function TabelaElenco({ elenco }: { elenco: AtletaElenco[] }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+            <tr className="text-left text-[11px] font-bold text-gray-500">
               <th className="py-2 pr-4">{tf.colAtleta}</th>
               <th className="py-2 pr-4">{tf.colParecidos}</th>
               <th className="whitespace-nowrap py-2 pr-4">{tf.colComparacao}</th>
@@ -788,7 +789,7 @@ function ComoLer({ dados }: { dados: FormacaoResponse }) {
     tf.lerCorte,
   ];
   return (
-    <details className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <details className="group overflow-hidden surface">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 [&::-webkit-details-marker]:hidden">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
           <BookOpen className="h-4 w-4 text-slate-500" />

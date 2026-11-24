@@ -166,7 +166,7 @@ export default function RelatoriosPage() {
 
   return (
     <>
-      <section className="w-full bg-gray-50 p-6">
+      <section className="w-full">
         <div className="mx-auto w-full max-w-5xl">
           <PageTitle
             base={t.common.principal}
@@ -203,9 +203,9 @@ export default function RelatoriosPage() {
                 </Link>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="overflow-hidden surface">
                 <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                  <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <span className="text-xs font-bold text-gray-500">
                     {reports.length}{" "}
                     {reports.length === 1 ? t.relatorios.relatorio : t.relatorios.relatorios}
                   </span>
@@ -240,7 +240,7 @@ export default function RelatoriosPage() {
                           <button
                             type="button"
                             onClick={() => openRenameModal(report)}
-                            className="p-2 rounded-md text-white transition bg-yellow-500 hover:bg-yellow-600"
+                            className="grid h-8 w-8 place-items-center rounded-[9px] text-gray-500 transition-colors hover:bg-[var(--surface-sunken)] hover:text-gray-950 cursor-pointer"
                             title={t.relatorios.renomear}
                           >
                             <Pencil size={16} />
@@ -249,7 +249,7 @@ export default function RelatoriosPage() {
                           <button
                             type="button"
                             onClick={() => setReportToDelete(report)}
-                            className="p-2 rounded-md text-white transition bg-red-500 hover:bg-red-600"
+                            className="grid h-8 w-8 place-items-center rounded-[9px] text-gray-500 transition-colors hover:bg-red-50 hover:text-[var(--bad)] cursor-pointer"
                             title={t.relatorios.deletar}
                             disabled={isDeleting}
                           >
@@ -263,7 +263,7 @@ export default function RelatoriosPage() {
 
                         <Link
                           href={`/relatorios/${report.id}`}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-gray-50"
+                          className="inline-flex shrink-0 items-center gap-1 surface px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-gray-50"
                         >
                           {t.relatorios.abrir}
                           <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
@@ -297,7 +297,7 @@ export default function RelatoriosPage() {
             onClick={closeRenameModal}
           />
 
-          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 surface p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Pencil className="h-4 w-4" style={{ color: BASE_BLUE }} />
@@ -354,7 +354,7 @@ export default function RelatoriosPage() {
                 type="button"
                 onClick={closeRenameModal}
                 disabled={renaming}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                className="surface px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
               >
                 {t.relatorios.cancelar}
               </button>

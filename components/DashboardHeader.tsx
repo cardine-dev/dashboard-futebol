@@ -1,12 +1,10 @@
 "use client";
 
-import { LayoutGrid } from "lucide-react";
+import { Download, LayoutGrid, Loader2 } from "lucide-react";
 import PageTitle from "@/components/Atoms/PageTitle";
 import type { DashboardView } from "@/type/dashboard";
-import ExportPrintButton from "@/components/ExportPrintButton";
 import { useI18n } from "@/contexts/I18nContext";
-
-const BASE_BLUE = "#334155";
+import { CLUBE } from "@/config/clube";
 
 type Props = {
   view: DashboardView;
@@ -39,60 +37,58 @@ export function DashboardHeader({
   const disabled = !!exporting || !!exportDisabled;
 
   const actions = (
-    <div className="w-full space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* LEFT: Export */}
-        <div className="shrink-0">
-          <ExportPrintButton
-            onClick={onExport}
-            loading={!!exporting}
-            disabled={disabled}
-          />
-        </div>
-
-        {/* RIGHT: Tabs + Widgets */}
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          <div className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1">
-            {TAB_KEYS.map((tab) => {
-              const active = tab.id === view;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => onViewChange(tab.id)}
-                  className={[
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer",
-                    active ? "text-white" : "text-slate-700 hover:bg-slate-50",
-                  ].join(" ")}
-                  style={active ? { backgroundColor: BASE_BLUE } : undefined}
-                  aria-pressed={active}
-                >
-                  {(t.dashboard as any)[tab.key]}
-                </button>
-              );
-            })}
-          </div>
-
+    <>
+      <div className="seg" role="group" aria-label={t.dashboard.title}>
+        {TAB_KEYS.map((tab) => (
           <button
+            key={tab.id}
             type="button"
-            onClick={onOpenPicker}
-            className="inline-flex items-center cursor-pointer gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-            title={t.dashboard_escolherWidgets}
-            data-no-export="true"
+            onClick={() => onViewChange(tab.id)}
+            aria-pressed={tab.id === view}
+            className="!px-3 !py-1.5"
           >
-            <LayoutGrid size={18} />
-            {t.dashboard.widgets}
+            {(t.dashboard as any)[tab.key]}
           </button>
-        </div>
+        ))}
       </div>
 
+      <button
+        type="button"
+        onClick={onOpenPicker}
+        className="btn btn-ghost cursor-pointer"
+        title={t.dashboard_escolherWidgets}
+        data-no-export="true"
+      >
+        <LayoutGrid size={16} aria-hidden />
+        {t.dashboard.widgets}
+      </button>
+
+      <button
+        type="button"
+        onClick={onExport}
+        disabled={disabled}
+        data-no-export="true"
+        className="btn btn-dark cursor-pointer"
+        title={t.exportPdf.exportar}
+      >
+        {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} aria-hidden />}
+        {exporting ? t.exportPdf.gerando : t.exportPdf.exportar}
+      </button>
+
       {exportError ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+        <p role="alert" className="w-full rounded-[10px] bg-red-50 px-3 py-2 text-xs font-medium text-[var(--bad)] ring-1 ring-red-200">
           {t.dashboard.falhaExportar}: {exportError}
-        </div>
+        </p>
       ) : null}
-    </div>
+    </>
   );
 
-  return <PageTitle base={t.common.principal} title={t.dashboard.title} actions={actions} />;
+  return (
+    <PageTitle
+      base={t.common.principal}
+      title={t.dashboard.title}
+      subtitle={`${CLUBE.nome} · ${CLUBE.cidade}`}
+      actions={actions}
+    />
+  );
 }

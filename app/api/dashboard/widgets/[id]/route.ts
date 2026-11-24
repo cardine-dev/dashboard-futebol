@@ -4,6 +4,7 @@ import { loadBaseWidget } from "@/lib/dashboard/loaders/base";
 import { loadMarketWidget } from "@/lib/dashboard/loaders/market";
 import { loadOverviewWidget } from "@/lib/dashboard/loaders/overview";
 import { loadCompareWidget } from "@/lib/dashboard/loaders/compare";
+import { requireUser } from "@/lib/authHelper";
 
 import type {
   WidgetApiResponse,
@@ -12,6 +13,10 @@ import type {
   WidgetScope,
   PeriodFilter,
 } from "@/type/dashboard";
+
+export const dynamic = "force-dynamic";
+
+const SCOPES: readonly WidgetScope[] = ["both", "base", "market"];
 
 /* -----------------------------
  * Query parsing
@@ -105,6 +110,16 @@ function getOrigin(req: NextRequest) {
   return req.nextUrl.origin;
 }
 
+function fail(widgetId: string, error: string, status: number) {
+  const body: WidgetApiResponse = { ok: false, widgetId: widgetId as WidgetId, error };
+  return NextResponse.json(body, { status });
+}
+
+/** Loader devolveu { ok:false } → mesmo corpo, mas com status 500 (antes era 200). */
+function respond(res: WidgetApiResponse) {
+  return NextResponse.json(res, { status: res.ok ? 200 : 500 });
+}
+
 /* -----------------------------
  * Route
  * ----------------------------- */
@@ -112,6 +127,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id?: string }> },
 ) {
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+
   let widgetIdStr = "unknown";
 
   try {
@@ -120,21 +138,17 @@ export async function GET(
     const id = unwrapped?.id;
 
     if (!id || typeof id !== "string") {
-      return NextResponse.json(
-        empty(
-          "unknown",
-          "Parâmetro de widget ausente/ inválido.",
-          "params.id veio vazio",
-        ),
-        { status: 200 },
-      );
+      return fail("unknown", "Parâmetro de widget ausente ou inválido.", 400);
     }
 
     widgetIdStr = id;
     const widgetId = id as WidgetId;
 
-    const scope = (req.nextUrl.searchParams.get("scope") ??
-      "both") as WidgetScope;
+    const rawScope = req.nextUrl.searchParams.get("scope") ?? "both";
+    if (!SCOPES.includes(rawScope as WidgetScope)) {
+      return fail(widgetId, "Parâmetro scope inválido (use both, base ou market).", 400);
+    }
+    const scope = rawScope as WidgetScope;
     const filters = readFilters(req);
     const origin = getOrigin(req);
 
@@ -142,8 +156,7 @@ export async function GET(
     // OVERVIEW
     // -------------------------
     if (widgetId.startsWith("overview.")) {
-      const res = await loadOverviewWidget(widgetId, filters, scope, origin);
-      return NextResponse.json(res, { status: 200 });
+      return respond(await loadOverviewWidget(widgetId, filters, scope, origin));
     }
 
     // -------------------------
@@ -153,8 +166,7 @@ export async function GET(
       widgetId.startsWith("base.") ||
       widgetId.startsWith("kpi.base.")
     ) {
-      const res = await loadBaseWidget(widgetId, filters);
-      return NextResponse.json(res, { status: 200 });
+      return respond(await loadBaseWidget(widgetId, filters));
     }
 
     // -------------------------
@@ -168,29 +180,22 @@ export async function GET(
         );
       }
 
-      const res = await loadMarketWidget(widgetId, filters);
-      return NextResponse.json(res, { status: 200 });
+      return respond(await loadMarketWidget(widgetId, filters));
     }
 
     // -------------------------
     // COMPARE
     // -------------------------
     if (widgetId.startsWith("compare.")) {
-      const res = await loadCompareWidget(widgetId, filters);
-      return NextResponse.json(res, { status: 200 });
+      return respond(await loadCompareWidget(widgetId, filters));
     }
 
     // -------------------------
     // FALLBACK
     // -------------------------
-    return NextResponse.json(empty(widgetId, "Widget não reconhecido."), {
-      status: 200,
-    });
-  } catch (err: any) {
+    return fail(widgetId, "Widget não reconhecido.", 404);
+  } catch (err) {
     console.error("Dashboard widget route error", err);
-    return NextResponse.json(
-      empty(widgetIdStr, "Erro interno ao carregar widget.", err?.message),
-      { status: 200 },
-    );
+    return fail(widgetIdStr, "Erro interno ao carregar widget.", 500);
   }
 }

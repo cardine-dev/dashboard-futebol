@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Abre em `http://localhost:3000`. Nenhuma configuração de banco é necessária no modo demo.
+Abre em `http://localhost:5000`. Na tela de login há atalhos "Acesso de demonstração" (admin e cliente). Nenhuma configuração de banco é necessária no modo demo.
 
 ### Credenciais de demonstração
 
@@ -33,6 +33,19 @@ Abre em `http://localhost:3000`. Nenhuma configuração de banco é necessária 
 
 O admin tem acesso às telas de administração (jogadores, clubes, transferências, usuários
 e Scout AI); o cliente vê apenas dashboard, jogadores e relatórios.
+
+### Apresentar para um clube (white-label)
+
+No `.env.local`, sem mexer no código:
+
+```
+NEXT_PUBLIC_CLUBE_NOME="Nome do Clube"
+NEXT_PUBLIC_CLUBE_CIDADE="Cidade · UF"
+NEXT_PUBLIC_CLUBE_ESCUDO="/assets/clubes/escudo.png"
+NEXT_PUBLIC_CLUBE_COR="#c8102e"
+```
+
+O nome e o escudo aparecem na barra lateral e no login; a cor vira o acento do painel.
 
 ## Estrutura
 
@@ -55,6 +68,10 @@ dashboard-futebol/
 - **Jogadores**: lista com filtros avançados, visão grid/lista, detalhe do atleta e export PDF.
 - **Clubes / Transferências**: gestão e importação.
 - **Relatórios**: análises geradas via Scout AI.
+- **Comparar** (`/comparar`): até 3 atletas lado a lado, com radar de atributos e o melhor valor marcado.
+- **Lista de observação** (`/observacao`): atletas marcados com a estrela, prontos para comparar.
+- **Busca global**: Ctrl/⌘+K encontra atleta, tela ou ação.
+- **Alerta de contratos** no dashboard: quem vence em até 12 meses e quanto valor está em jogo.
 - **Scout AI**: assistente de análise de elenco e mercado (modo demo: respostas simuladas).
 - **Formação** (`/formacao`): chance de virar profissional por nível do clube formador
   (5 níveis), sempre condicional ao grupo e com a conta à mostra, intervalo de 90% e teste

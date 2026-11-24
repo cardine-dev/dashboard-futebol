@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mapPlayerToJogador } from "@/lib/mapPlayerToJogador";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 
@@ -20,32 +22,30 @@ async function getClubLite(clubeId?: string | null) {
    GET /api/jogadores/:id
 ========================= */
 export async function GET(
-  _: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+
   const { id } = await params;
 
   try {
     const jogador = await prisma.player.findUnique({ where: { id } });
 
     if (!jogador) {
-      return NextResponse.json(
-        { error: "Jogador não encontrado" },
-        { status: 404 }
-      );
+      return apiError(404, "Jogador não encontrado");
     }
 
     const club = await getClubLite(jogador.clubeId);
+    const mapped = mapPlayerToJogador(jogador, club);
 
+    // CPF só para ADMIN (mesmo formato de resposta para CLIENT).
     return NextResponse.json({
-      jogador: mapPlayerToJogador(jogador, club),
+      jogador: auth.user.role === "ADMIN" ? mapped : { ...mapped, cpf: "" },
     });
   } catch (err) {
-    console.error("[API /jogadores/[id]] - ERRO NO PRISMA (GET)", err);
-    return NextResponse.json(
-      { error: "Erro interno ao buscar jogador" },
-      { status: 500 }
-    );
+    return handleRouteError(err, "GET /api/jogadores/[id]", "Erro interno ao buscar jogador");
   }
 }
 
@@ -56,6 +56,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireUser(request, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+
   const { id } = await params;
 
   try {
@@ -120,10 +123,7 @@ export async function PATCH(
     if (cpf !== undefined && cpf !== null) {
       const clean = String(cpf).replace(/\D/g, "").slice(0, 11);
       if (clean && clean.length !== 11) {
-        return NextResponse.json(
-          { error: "CPF inválido (precisa ter 11 dígitos)." },
-          { status: 400 }
-        );
+        return apiError(400, "CPF inválido (precisa ter 11 dígitos).");
       }
     }
 
@@ -199,10 +199,7 @@ export async function PATCH(
           select: { id: true },
         });
         if (!exists) {
-          return NextResponse.json(
-            { error: "clubeId inválido (clube não existe)." },
-            { status: 400 }
-          );
+          return apiError(400, "clubeId inválido (clube não existe).");
         }
       }
 
@@ -210,10 +207,7 @@ export async function PATCH(
     }
 
     if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { error: "Nenhum campo para atualizar" },
-        { status: 400 }
-      );
+      return apiError(400, "Nenhum campo para atualizar");
     }
 
     const updated = await prisma.player.update({
@@ -227,11 +221,7 @@ export async function PATCH(
       jogador: mapPlayerToJogador(updated, club),
     });
   } catch (err) {
-    console.error("[API /jogadores/[id]] - ERRO NO PRISMA (PATCH)", err);
-    return NextResponse.json(
-      { error: "Erro interno ao atualizar jogador" },
-      { status: 500 }
-    );
+    return handleRouteError(err, "PATCH /api/jogadores/[id]", "Erro interno ao atualizar jogador");
   }
 }
 
@@ -239,9 +229,12 @@ export async function PATCH(
    DELETE /api/jogadores/:id
 ============================ */
 export async function DELETE(
-  _: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+
   const { id } = await params;
 
   try {
@@ -251,20 +244,13 @@ export async function DELETE(
     });
 
     if (!exists) {
-      return NextResponse.json(
-        { error: "Jogador não encontrado" },
-        { status: 404 }
-      );
+      return apiError(404, "Jogador não encontrado");
     }
 
     await prisma.player.delete({ where: { id } });
 
     return NextResponse.json({ ok: true, deletedId: id });
   } catch (err) {
-    console.error("[API /jogadores/[id]] - ERRO NO PRISMA (DELETE)", err);
-    return NextResponse.json(
-      { error: "Erro interno ao deletar jogador" },
-      { status: 500 }
-    );
+    return handleRouteError(err, "DELETE /api/jogadores/[id]", "Erro interno ao deletar jogador");
   }
 }

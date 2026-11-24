@@ -3,8 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type { KpisApiResponse, WidgetScope, KpiDatum } from "@/type/dashboard";
+import { requireUser } from "@/lib/authHelper";
+import { taggedSql } from "@/lib/dashboard/sqlTag";
+
+export const dynamic = "force-dynamic";
 
 type Scope = WidgetScope;
+const SCOPES: readonly Scope[] = ["both", "base", "market"];
 
 const BASE_MARKET_VALUE_SCALE = 1_000_000; // valorMercado vem em milhões de EUR
 
@@ -20,8 +25,19 @@ function kpi(label: string, value: number | null, unit?: string): KpiDatum {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+
+  const rawScope = req.nextUrl.searchParams.get("scope") ?? "both";
+  if (!SCOPES.includes(rawScope as Scope)) {
+    return NextResponse.json(
+      { ok: false, error: "Parâmetro scope inválido (use both, base ou market)." } satisfies KpisApiResponse,
+      { status: 400 },
+    );
+  }
+  const scope = rawScope as Scope;
+
   try {
-    const scope = (req.nextUrl.searchParams.get("scope") ?? "both") as Scope;
 
     const baseEnabled = scope !== "market";
     const marketEnabled = scope !== "base";
@@ -47,13 +63,13 @@ export async function GET(req: NextRequest) {
     // deals_per_month = deals / meses distintos com dados
     const marketDealsPerMonthPromise = marketEnabled
       ? prisma.$queryRaw<{ deals: number; months: number }[]>(
-          Prisma.sql`
+          taggedSql("kpi.market_deals_per_month", Prisma.sql`
             SELECT
               COUNT(*)::int AS deals,
               COUNT(DISTINCT DATE_TRUNC('month', "dataTransferencia"))::int AS months
             FROM "Transferencia"
             WHERE "dataTransferencia" IS NOT NULL
-          `,
+          `),
         )
       : Promise.resolve(null);
 
@@ -74,7 +90,7 @@ export async function GET(req: NextRequest) {
     // SUM(valorMercado(milhões)->EUR * possePct/100)
     const baseWeightedValuePromise = baseEnabled
       ? prisma.$queryRaw<{ weighted: number | null }[]>(
-          Prisma.sql`
+          taggedSql("kpi.base_weighted_value", Prisma.sql`
             SELECT
               SUM(
                 ("valorMercado"::float8 * ${BASE_MARKET_VALUE_SCALE}::float8) * ("possePct"::float8 / 100.0)
@@ -82,7 +98,7 @@ export async function GET(req: NextRequest) {
             FROM "Player"
             WHERE "valorMercado" IS NOT NULL
               AND "possePct" IS NOT NULL
-          `,
+          `),
         )
       : Promise.resolve(null);
 
@@ -197,9 +213,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(res, { status: 200 });
   } catch (err) {
     console.error("KPIs route error", err);
+    // corpo mantém o formato { ok:false, error } que o DashboardClient já entende
     return NextResponse.json(
       { ok: false, error: "Erro interno ao carregar KPIs." } satisfies KpisApiResponse,
-      { status: 200 },
+      { status: 500 },
     );
   }
 }

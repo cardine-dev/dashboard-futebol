@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mapPlayerToJogador } from "@/lib/mapPlayerToJogador";
 import type { Jogador } from "@/type/jogador";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +15,34 @@ function normalizeCPF(v: any): string | null {
   return digits || null;
 }
 
-export async function GET() {
+const MAX_IDS = 200;
+
+/** `?ids=a,b,c` → lista limpa (sem vazios/duplicados), ou null se ausente. */
+function parseIds(raw: string | null): string[] | null {
+  if (raw === null) return null;
+  const ids = Array.from(
+    new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  );
+  return ids.slice(0, MAX_IDS);
+}
+
+export async function GET(req: Request) {
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+  const isAdmin = auth.user.role === "ADMIN";
+
   try {
+    const ids = parseIds(new URL(req.url).searchParams.get("ids"));
+    if (ids && ids.length === 0) return NextResponse.json({ jogadores: [] });
+
     // 1) Busca jogadores sem relations
     const players = await prisma.player.findMany({
+      ...(ids ? { where: { id: { in: ids } } } : {}),
       orderBy: { nome: "asc" },
     });
 
@@ -36,31 +62,29 @@ export async function GET() {
     const clubById = new Map<string, ClubLite>(clubs.map((c) => [c.id, c]));
 
     // 4) Mapeia jogadores com clubObj (nome + logo)
+    //    CPF é dado pessoal: só ADMIN recebe (CLIENT recebe string vazia, mesmo formato).
     const jogadores: Jogador[] = players.map((p) => {
       const club = p.clubeId ? (clubById.get(p.clubeId) ?? null) : null;
-      return mapPlayerToJogador(p, club);
+      const j = mapPlayerToJogador(p, club);
+      return isAdmin ? j : { ...j, cpf: "" };
     });
 
     return NextResponse.json({ jogadores });
   } catch (err) {
-    console.error("Erro ao buscar jogadores:", err);
-    return NextResponse.json(
-      { error: "Erro ao buscar jogadores" },
-      { status: 500 },
-    );
+    return handleRouteError(err, "GET /api/jogadores", "Erro ao buscar jogadores");
   }
 }
 
 export async function POST(req: Request) {
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json().catch(() => ({}));
 
     const nome = String(body?.nome ?? "").trim();
     if (!nome) {
-      return NextResponse.json(
-        { error: "Preencha o nome do jogador." },
-        { status: 400 },
-      );
+      return apiError(400, "Preencha o nome do jogador.");
     }
 
     const cpf = normalizeCPF(body?.cpf);
@@ -72,10 +96,7 @@ export async function POST(req: Request) {
       cpf &&
       cpf.length !== 11
     ) {
-      return NextResponse.json(
-        { error: "CPF inválido (precisa ter 11 dígitos)." },
-        { status: 400 },
-      );
+      return apiError(400, "CPF inválido (precisa ter 11 dígitos).");
     }
 
     // clube via ID
@@ -90,10 +111,7 @@ export async function POST(req: Request) {
       });
 
       if (!club) {
-        return NextResponse.json(
-          { error: "clubeId inválido (clube não existe)." },
-          { status: 400 },
-        );
+        return apiError(400, "clubeId inválido (clube não existe).");
       }
     }
     const data: any = {
@@ -143,10 +161,6 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (err) {
-    console.error("Erro ao criar jogador:", err);
-    return NextResponse.json(
-      { error: "Erro ao criar jogador" },
-      { status: 500 },
-    );
+    return handleRouteError(err, "POST /api/jogadores", "Erro ao criar jogador");
   }
 }

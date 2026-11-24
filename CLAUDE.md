@@ -15,7 +15,7 @@ npm run build      # prisma generate + next build
 npm run lint       # ESLint
 ```
 
-Sem suíte de testes — teste manual.
+Sem suíte de testes no repo. `npm run lint` (eslint.config.mjs) e `npx tsc --noEmit` devem passar sem erro.
 
 ## Modo demo (sem banco)
 
@@ -60,6 +60,30 @@ Credenciais demo:
   20 casos; gols e cartões por 90 são encolhidos para a média do grupo; z-scores cortados em ±3; outros
   clubes sempre anônimos. Não adicionar valor de mercado projetado, valor da carteira nem chance individual
   por modelo sem validação fora da amostra.
+
+### Design system (v2, 2026-11)
+- Tokens em `app/globals.css`: canvas claro, chrome escuro "noite" (`--night-*`), 1 acento (`--accent`).
+  `gray` e `slate` do Tailwind apontam para a mesma rampa neutra. Classes de componente em
+  `@layer components`: `.surface`, `.btn` + `.btn-primary|dark|ghost`, `.seg`, `.input`, `.skeleton`.
+- Cores de setor (GOL/DEF/MEI/ATA) em `lib/ui/sector.ts` e `--color-gol|def|mei|ata` (paleta validada
+  para daltonismo). Texto nunca usa cor de setor.
+- Motion: só por evento (entrada de rota, contagem de KPI, radar, hover/press, gavetas), teto ~300 ms,
+  `prefers-reduced-motion` respeitado. Não usar `transition-all`.
+- Textos novos de interface ficam em `locales/ui.ts` (pt/en/es juntos).
+
+### White-label (clube que assiste à demo)
+`config/clube.ts` lê `NEXT_PUBLIC_CLUBE_NOME|SIGLA|CIDADE|ESCUDO|COR` do `.env.local`. A cor vira o acento
+do painel inteiro. Escudos de clubes reais ficam em `public/assets/clubes/` e fora do git (repo público).
+
+### Telas da v2
+- `/comparar?ids=a,b,c`: até 3 atletas, radar sobreposto + tabela com o melhor valor marcado.
+- `/observacao`: lista de observação (estrela nos cards/ficha), salva no navegador.
+- Busca global: Ctrl/⌘+K ou `/`.
+- Atributos do radar são GERADOS para a demo (`lib/ui/atributos.ts`, determinístico por id) e a UI avisa isso.
+
+### Dev no Windows
+`experimental.turbopackFileSystemCacheForDev: false` no `next.config.js`: com o cache ligado o Turbopack
+servia `globals.css` antigo. Se o CSS parecer não atualizar, `rm -rf .next/dev` e reinicie.
 
 ### TypeScript
 `strict: false`. Alias `@/*` → raiz. Tipos do jogador em `type/jogador.tsx`.

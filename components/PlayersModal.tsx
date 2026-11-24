@@ -6,11 +6,12 @@ import type { Jogador } from "@/type/jogador";
 import Card from "@/components/Card";
 import PlayerRow from "@/components/PlayerRow";
 import { useI18n } from "@/contexts/I18nContext";
+import { useEscape } from "@/hooks/useEscape";
 
 export type View = "grid" | "list";
 
-const BASE_BLUE = "#334155";
-const BASE_YELLOW = "#64748B";
+const BASE_BLUE = "var(--ink)";
+const BASE_YELLOW = "var(--accent)";
 
 export default function PlayersModal({
   open,
@@ -28,11 +29,12 @@ export default function PlayersModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  useEscape(!!open, onClose);
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="h-[90vh] w-[95vw] max-w-[1200px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_70px_rgba(0,0,0,0.22)]">
+    <div className="backdrop-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] backdrop-blur-[2px]">
+      <div role="dialog" aria-modal="true" className="overlay-in h-[90vh] w-[95vw] max-w-[1200px] overflow-hidden rounded-[18px] bg-[var(--surface)] shadow-[var(--shadow-3)]">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
           <div className="min-w-0">
@@ -41,13 +43,13 @@ export default function PlayersModal({
                 className="h-2 w-2 rounded-full"
                 style={{ backgroundColor: BASE_BLUE }}
               />
-              <div className="truncate text-sm font-extrabold text-slate-900">
+              <div className="truncate text-sm font-semibold text-gray-950">
                 {title}
               </div>
 
               <span className="hidden h-5 w-px bg-slate-200 sm:inline-block" />
 
-              <span className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-extrabold text-slate-700">
+              <span className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
                 {players.length} {players.length === 1 ? t.playersModal.jogador : t.playersModal.jogadores}
               </span>
             </div>
@@ -60,7 +62,7 @@ export default function PlayersModal({
           <div className="flex items-center gap-2">
             {/* Segmented View Toggle */}
             <div
-              className="inline-flex overflow-hidden rounded-xl border border-gray-200 bg-white"
+              className="inline-flex overflow-hidden surface"
               role="group"
               aria-label={t.playersModal.alternarVisualizacao}
             >
@@ -101,7 +103,7 @@ export default function PlayersModal({
             <button
               type="button"
               onClick={onClose}
-              className="cursor-pointer rounded-xl border border-white/20 px-3 py-2 text-xs font-extrabold text-white shadow-sm transition hover:opacity-95"
+              className="cursor-pointer rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95"
               style={{ backgroundColor: BASE_BLUE }}
               title={t.playersModal.fechar}
               aria-label={t.playersModal.fechar}
@@ -128,31 +130,31 @@ export default function PlayersModal({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <table className="w-full border-collapse overflow-hidden surface">
                 <thead>
                   <tr>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.jogadores.jogador}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.clube}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.idade}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.pe}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.altura}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.situacao}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.valor}
                     </th>
-                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                    <th className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-[11px] font-semibold text-gray-950">
                       {t.playersModal.posse}
                     </th>
                   </tr>

@@ -295,7 +295,7 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="text-gray-500">{t.common.carregando}</div>
       </div>
     );
@@ -310,7 +310,7 @@ export default function AdminUsersPage() {
   );
 
   return (
-    <section className="mx-auto w-full max-w-6xl bg-gray-50 p-6">
+    <section className="mx-auto w-full max-w-6xl">
       {/* popup copiar senha */}
       <CopySecretDialog
         open={copyOpen}
@@ -361,8 +361,8 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700">
+      <div className="overflow-hidden surface">
+        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-slate-700">
           <span />
           <span>{t.adminUsuarios.usuario}</span>
           <span>{t.adminUsuarios.criadoEm}</span>
@@ -408,7 +408,7 @@ export default function AdminUsersPage() {
             onClick={() => !isSubmitting && setShowCreateModal(false)}
           />
           <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="w-full max-w-[520px] overflow-hidden surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
               <div className="flex items-center justify-between border-b border-gray-200 p-4">
                 <div>
                   <div className="text-sm font-extrabold text-slate-900">{t.adminUsuarios.criarUsuario}</div>
@@ -514,7 +514,7 @@ export default function AdminUsersPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="rounded-lg bg-[#94a3b8] px-4 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8] disabled:opacity-60"
+                    className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-60"
                   >
                     {isSubmitting ? t.adminUsuarios.criando : t.adminUsuarios.criar}
                   </button>
@@ -533,7 +533,7 @@ export default function AdminUsersPage() {
             onClick={() => !isSubmitting && setShowEditModal(false)}
           />
           <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="w-full max-w-[520px] overflow-hidden surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
               <div className="flex items-center justify-between border-b border-gray-200 p-4">
                 <div>
                   <div className="text-sm font-extrabold text-slate-900">{t.adminUsuarios.editarUsuario}</div>
@@ -571,7 +571,7 @@ export default function AdminUsersPage() {
                 </div>
 
                 <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wider text-gray-500">
+                  <div className="text-[11px] text-gray-500">
                     {t.adminUsuarios.dadosUsuario}
                   </div>
                   <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -596,7 +596,7 @@ export default function AdminUsersPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="rounded-lg bg-[#94a3b8] px-4 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8] disabled:opacity-60"
+                    className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-60"
                   >
                     {isSubmitting ? t.adminUsuarios.salvando : t.adminUsuarios.salvar}
                   </button>

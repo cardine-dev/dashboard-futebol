@@ -12,7 +12,7 @@ import {
 import ConfirmDeleteDialog from "../Atoms/ConfirmDeleteDialog";
 import { useI18n } from "@/contexts/I18nContext";
 
-const BASE_BLUE = "#334155";
+const BASE_BLUE = "var(--ink)";
 
 type ConversationSummary = {
   id: string;

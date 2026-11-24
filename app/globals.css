@@ -2,42 +2,500 @@
 @source "../app/**/*.{ts,tsx}";
 @source "../components/**/*.{ts,tsx}";
 
-/* valor padrão da sidebar (expandida) pra evitar o "flash" */
+/* =====================================================================
+   Design system — "noite de estádio"
+   Canvas claro cor de cal, chrome escuro de noite de jogo, 1 acento
+   (verde-gramado por padrão; cada clube troca pela cor dele via
+   NEXT_PUBLIC_CLUBE_COR). Números em mono tabular, como placar.
+   ===================================================================== */
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Rampa neutra "tinta": cinza com um fio de temperatura de gramado.
+     gray e slate apontam pra mesma rampa: o app inteiro herda sem refactor. */
+  --color-gray-50: oklch(0.981 0.004 120);
+  --color-gray-100: oklch(0.958 0.005 130);
+  --color-gray-200: oklch(0.918 0.006 140);
+  --color-gray-300: oklch(0.862 0.008 148);
+  --color-gray-400: oklch(0.708 0.011 155);
+  --color-gray-500: oklch(0.522 0.013 160);
+  --color-gray-600: oklch(0.45 0.013 162);
+  --color-gray-700: oklch(0.366 0.013 164);
+  --color-gray-800: oklch(0.272 0.013 166);
+  --color-gray-900: oklch(0.205 0.012 168);
+  --color-gray-950: oklch(0.15 0.01 170);
+
+  --color-slate-50: oklch(0.981 0.004 120);
+  --color-slate-100: oklch(0.958 0.005 130);
+  --color-slate-200: oklch(0.918 0.006 140);
+  --color-slate-300: oklch(0.862 0.008 148);
+  --color-slate-400: oklch(0.708 0.011 155);
+  --color-slate-500: oklch(0.522 0.013 160);
+  --color-slate-600: oklch(0.45 0.013 162);
+  --color-slate-700: oklch(0.366 0.013 164);
+  --color-slate-800: oklch(0.272 0.013 166);
+  --color-slate-900: oklch(0.205 0.012 168);
+  --color-slate-950: oklch(0.15 0.01 170);
+
+  /* Setores do campo (validado com dataviz/validate_palette, modo claro):
+     ordem fixa GOL → DEF → MEI → ATA. Texto nunca usa estas cores. */
+  --color-gol: #eda100;
+  --color-def: #2a78d6;
+  --color-mei: #1baf7a;
+  --color-ata: #eb6834;
+
+
+  /* Compatibilidade com classes no estilo shadcn usadas em telas antigas */
+  --color-background: #ffffff;
+  --color-card: #ffffff;
+  --color-muted: oklch(0.958 0.005 130);
+  --color-muted-foreground: oklch(0.552 0.013 160);
+  --color-foreground: oklch(0.205 0.012 168);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --animate-enter: enter 260ms var(--ease-out-expo) both;
+  --animate-fade: fade 200ms ease-out both;
+  --animate-pop: pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 :root {
   --sb-width: 248px;
+
+  /* Superfícies */
+  --canvas: oklch(0.973 0.006 105);
+  --surface: #ffffff;
+  --surface-2: oklch(0.981 0.004 120);
+  --surface-sunken: oklch(0.958 0.005 130);
+  --hairline: rgb(16 26 21 / 0.085);
+  --hairline-strong: rgb(16 26 21 / 0.14);
+
+  /* Tinta */
+  --ink: oklch(0.205 0.012 168);
+  --ink-2: oklch(0.45 0.013 162);
+  --ink-3: oklch(0.522 0.013 160);
+  --brand: oklch(0.205 0.012 168);
+
+  /* Noite: chrome escuro (sidebar, login). Escada de superfícies, sem sombra. */
+  --night-0: #0a110e;
+  --night-1: #111a16;
+  --night-2: #18231e;
+  --night-3: #203029;
+  --night-line: rgb(255 255 255 / 0.08);
+  --night-ink: rgb(255 255 255 / 0.92);
+  --night-ink-2: rgb(255 255 255 / 0.62);
+
+  /* Acento (white-label: o layout sobrescreve --accent com a cor do clube) */
+  --accent: #0b7a45;
+  --accent-ink: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent) 88%, black);
+  --accent-soft: color-mix(in oklab, var(--accent) 10%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 35%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 70%, white);
+
+  /* Estados (reservados, nunca série de gráfico) */
+  --good: #15803d;
+  --warn: #9a4508;
+  --bad: #b91c1c;
+
+  /* Elevação em tema claro: anel 1px + sombras por tier */
+  --shadow-1: 0 0 0 1px var(--hairline), 0 1px 2px rgb(16 26 21 / 0.04);
+  --shadow-2: 0 0 0 1px var(--hairline), 0 1px 2px rgb(16 26 21 / 0.04),
+    0 8px 24px -10px rgb(16 26 21 / 0.14);
+  --shadow-3: 0 0 0 1px var(--hairline), 0 2px 4px rgb(16 26 21 / 0.05),
+    0 24px 48px -16px rgb(16 26 21 / 0.22);
+
+
+  /* Sombras e véus nomeados (nada de cor solta nos componentes) */
+  --scrim: rgb(10 17 14 / 0.45);
+  --hover-tint: rgb(16 26 21 / 0.04);
+  --shadow-hover: 0 0 0 1px var(--hairline-strong), 0 1px 2px rgb(16 26 21 / 0.05);
+  --shadow-night: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 12px 32px -16px rgb(10 17 14 / 0.5);
+  --shadow-toast: 0 12px 32px -8px rgb(10 17 14 / 0.45);
+  --shadow-btn: 0 1px 2px rgb(16 26 21 / 0.2);
+  --shadow-btn-primary: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 1px 2px rgb(16 26 21 / 0.18);
+  --shadow-btn-dark: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 1px 2px rgb(16 26 21 / 0.2);
+  --shadow-seg-on: 0 0 0 1px var(--hairline), 0 1px 2px rgb(16 26 21 / 0.08);
+
+  /* Setores no :root também (garante as variáveis mesmo se o Tailwind podar o tema) */
+  --color-gol: #eda100;
+  --color-def: #2a78d6;
+  --color-mei: #1baf7a;
+  --color-ata: #eb6834;
+
+  /* Gráficos e comparador */
+  --chart-grid: #e6e9e4;
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --on-dark: #ffffff;
+
+  --radius-card: 14px;
+  --radius-control: 10px;
+
+  color-scheme: light;
+  accent-color: var(--accent);
+}
+
+
+/* Tailwind 4 usa currentColor como borda padrão: devolve a hairline do sistema */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--hairline-strong, currentColor);
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+@supports (color: color-mix(in oklab, red, red)) {
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+}
+
+input,
+textarea {
+  caret-color: var(--accent);
+}
+
+/* Números de dado: algarismos tabulares, alinhados como placar */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "ss01", "cv11";
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco de teclado: única exceção cromática junto do erro */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbars temadas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-gray-300);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-gray-400);
 }
 
 .no-scroll {
   overflow: hidden;
 }
 
-/* Scrollbar da sidebar — fina, arredondada e branca translúcida */
+/* Scrollbar da sidebar (fundo noite) */
 .sidebar-scroll {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
 }
-
 .sidebar-scroll::-webkit-scrollbar {
   width: 6px;
 }
-
-.sidebar-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.5);
-  border-radius: 9999px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  background-color: rgb(255 255 255 / 0.18);
+  border: 0;
 }
 
-.sidebar-scroll:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.8);
-}
-
+@layer components {
 .input {
-  @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#334155] focus:ring-1 focus:ring-[#334155] bg-white;
+  @apply w-full rounded-[10px] border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-gray-400 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)];
 }
+
+/* Superfícies reutilizáveis */
+.surface {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-1);
+}
+.surface-hover {
+  transition:
+    box-shadow 220ms var(--ease-out-expo),
+    transform 220ms var(--ease-out-expo);
+}
+@media (hover: hover) {
+  .surface-hover:hover {
+    box-shadow: var(--shadow-2);
+    transform: translateY(-2px);
+  }
+}
+
+/* Botões base */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-[10px] px-3.5 py-2 text-sm font-medium whitespace-nowrap select-none disabled:cursor-not-allowed disabled:opacity-50;
+  transition:
+    background-color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    color 150ms ease-out,
+    transform 120ms var(--ease-snappy);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-btn-primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-dark {
+  background: var(--ink);
+  color: var(--on-dark);
+  box-shadow: var(--shadow-btn-dark);
+}
+.btn-dark:hover:not(:disabled) {
+  background: var(--color-gray-800);
+}
+.btn-ghost {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Segmented control */
+.seg {
+  @apply inline-flex items-center gap-0.5 rounded-[10px] p-0.5;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.seg > button {
+  @apply rounded-[8px] px-2.5 py-1 text-xs font-medium text-gray-600 cursor-pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+.seg > button:hover {
+  color: var(--ink);
+}
+.seg > button[aria-pressed="true"],
+.seg > button[data-active="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-seg-on);
+}
+
+/* Chip de setor (GOL/DEF/MEI/ATA): ponto colorido + texto em tinta */
+.sector-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 2px var(--surface);
+  flex: none;
+}
+
+}
+
+/* Linhas de campo: assinatura em hairline */
+.pitch-lines {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 0 63px, var(--line, rgb(16 26 21 / 0.06)) 63px 64px, transparent 64px),
+    linear-gradient(90deg, transparent calc(50% - 0.5px), var(--line, rgb(16 26 21 / 0.06)) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+
+/* ------------------------------ Motion ------------------------------ */
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Entrada de rota: só o conteúdo, rápido, uma vez por navegação */
+.route-enter {
+  animation: enter 280ms var(--ease-out-expo) both;
+}
+
+/* Lista que aparece como lista: stagger com teto (12 itens × 24ms) */
+.stagger > * {
+  animation: enter 320ms var(--ease-out-expo) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 24ms; }
+.stagger > *:nth-child(3) { animation-delay: 48ms; }
+.stagger > *:nth-child(4) { animation-delay: 72ms; }
+.stagger > *:nth-child(5) { animation-delay: 96ms; }
+.stagger > *:nth-child(6) { animation-delay: 120ms; }
+.stagger > *:nth-child(7) { animation-delay: 144ms; }
+.stagger > *:nth-child(8) { animation-delay: 168ms; }
+.stagger > *:nth-child(9) { animation-delay: 192ms; }
+.stagger > *:nth-child(10) { animation-delay: 216ms; }
+.stagger > *:nth-child(11) { animation-delay: 240ms; }
+.stagger > *:nth-child(n + 12) { animation-delay: 264ms; }
+
+.overlay-in {
+  animation: overlay-in 220ms var(--ease-out-expo) both;
+}
+.drawer-in {
+  animation: drawer-in 260ms var(--ease-out-expo) both;
+}
+.backdrop-in {
+  animation: fade 200ms ease-out both;
+}
+
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-sunken) 0%,
+    var(--surface-2) 50%,
+    var(--surface-sunken) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 120ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+  .route-enter,
+  .stagger > *,
+  .overlay-in,
+  .drawer-in {
+    animation-name: fade !important;
+    animation-delay: 0ms !important;
+  }
+  .surface-hover:hover,
+  .btn:active:not(:disabled) {
+    transform: none !important;
+  }
+  .skeleton {
+    animation: none !important;
+  }
+}
+
+/* --------------------------- Export de PDF --------------------------- */
 
 /* Fix garantido para group-hover em produção — não depende do scanner do Tailwind */
 .group:hover .group-hover\:opacity-100 {
@@ -49,18 +507,16 @@ html:has(body[data-exporting="true"]) {
   overflow: visible !important;
 }
 
-/* wrappers que você marcou */
 body[data-exporting="true"] [data-export-scroll="true"] {
   overflow: visible !important;
 }
 
-/* esconde scrollbar no export (Chrome/Edge) */
 body[data-exporting="true"] *::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
 }
 
-/* Firefox */
 body[data-exporting="true"] * {
   scrollbar-width: none !important;
+  animation: none !important;
 }

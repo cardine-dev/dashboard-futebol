@@ -22,7 +22,7 @@ export default function Pill({
       className={cx(
         "cursor-pointer rounded-full border px-3 py-1 text-xs transition",
         active
-          ? "bg-[#64748B] border-[#64748B] text-black font-semibold"
+          ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-ink)] font-semibold"
           : "border-slate-200 text-slate-800 hover:bg-slate-50",
       )}
     >

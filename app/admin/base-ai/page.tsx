@@ -8,6 +8,7 @@ import React, {
   useEffect,
 } from "react";
 import { useI18n } from "@/contexts/I18nContext";
+import { useAuth } from "@/app/auth/AuthContext";
 import PageTitle from "@/components/Atoms/PageTitle";
 import { ChatMessageBubble } from "@/components/Chat/ChatMessageBubble";
 import { ChatHistoryPanel } from "@/components/Chat/ChatHistoryPanel";
@@ -32,7 +33,7 @@ import {
 /* =========================
    Theme colors
 ========================= */
-const BASE_BLUE = "#334155";
+const BASE_BLUE = "var(--ink)";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -219,6 +220,8 @@ export default function BaseChatPage() {
   } | null>(null);
 
   const hasMessages = messages.length > 0;
+  const { user: me } = useAuth();
+  const firstName = (me?.name || "").split(" ")[0];
 
   const actions: QuickAction[] = useMemo(
     () => [
@@ -647,7 +650,7 @@ export default function BaseChatPage() {
   );
 
   return (
-    <section className="relative h-[calc(100vh-64px)] w-full overflow-hidden bg-gray-50">
+    <section className="relative h-[calc(100dvh-7.5rem)] w-full overflow-hidden">
       <div className="flex h-full min-h-0 flex-col">
         <div className="shrink-0 px-6 pt-6 pb-3">
           <PageTitle
@@ -672,7 +675,7 @@ export default function BaseChatPage() {
               className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]"
               onClick={() => setReportModalOpen(false)}
             />
-            <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 surface p-6 shadow-2xl">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <FileText
@@ -724,7 +727,7 @@ export default function BaseChatPage() {
                 <button
                   type="button"
                   onClick={() => setReportModalOpen(false)}
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-gray-50"
+                  className="surface px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-gray-50"
                 >
                   {t.baseAi.cancelar}
                 </button>
@@ -754,7 +757,7 @@ export default function BaseChatPage() {
             {(notice || errorBanner) && (
               <div className="shrink-0 border-b border-gray-100 px-5 pt-4">
                 {notice && (
-                  <div className="mb-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
+                  <div className="mb-3 surface px-4 py-2.5 text-sm text-slate-600 shadow-sm">
                     {notice}
                   </div>
                 )}
@@ -779,26 +782,38 @@ export default function BaseChatPage() {
               {!hasMessages ? (
                 <div className="mx-auto flex h-full w-full max-w-4xl flex-col px-5 pb-6 pt-6">
                   <div className="mb-6">
-                    <div
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl"
-                      style={{ background: "rgba(0,51,153,0.06)" }}
-                    >
-                      <Sparkles
-                        className="h-5 w-5"
-                        style={{ color: BASE_BLUE }}
-                      />
+                    <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)]">
+                      <Sparkles className="h-5 w-5 text-[var(--accent)]" />
                     </div>
-                    <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">
-                      {t.baseAi.ola}
+                    <h1 className="mt-4 text-[26px] font-semibold tracking-[-0.03em] text-gray-950">
+                      {t.baseAi.ola.replace(/,\s*$/, "")}{firstName ? `, ${firstName}` : ""}
                     </h1>
-                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">
                       {t.baseAi.descricao}
                     </p>
+                    <div className="stagger mt-6 grid gap-2 sm:grid-cols-2">
+                      {actions.map((a) => (
+                        <button
+                          key={a.key}
+                          type="button"
+                          onClick={() => setPrompt(a.prompt)}
+                          className="surface surface-hover flex items-start gap-3 p-3.5 text-left cursor-pointer"
+                        >
+                          <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-sunken)] text-gray-700">
+                            {a.icon}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-[13.5px] font-medium text-gray-900">{a.label}</span>
+                            <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-5 text-gray-500">{a.prompt}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {recentChats.length > 0 && (
-                    <div className="mt-15">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                    <div className="mt-10">
+                      <p className="mb-2 text-[11px] font-semibold text-gray-400">
                         {t.baseAi.conversasRecentes}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -960,7 +975,7 @@ export default function BaseChatPage() {
                     title={t.baseAi.anexarArquivo}
                     onClick={() => fileInputRef.current?.click()}
                     className={cn(
-                      "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-slate-500 shadow-sm transition hover:bg-gray-50 active:scale-[0.98]",
+                      "inline-flex h-11 w-11 shrink-0 items-center justify-center surface text-slate-500 shadow-sm transition hover:bg-gray-50 active:scale-[0.98]",
                       pendingFile ? "border-blue-300 bg-blue-50" : "",
                     )}
                   >
@@ -970,7 +985,7 @@ export default function BaseChatPage() {
                     />
                   </button>
 
-                  <div className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white shadow-sm">
+                  <div className="min-w-0 flex-1 surface">
                     <textarea
                       ref={textareaRef}
                       value={input}
@@ -1015,14 +1030,14 @@ export default function BaseChatPage() {
 
         {plusOpen && plusDropdownPos && (
           <div
-            className="fixed z-30 w-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg"
+            className="fixed z-30 w-[300px] overflow-hidden surface shadow-lg"
             style={{
               bottom: plusDropdownPos.bottom,
               left: plusDropdownPos.left,
             }}
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <span className="text-xs font-semibold text-gray-400">
                 Análises rápidas
               </span>
               <button
@@ -1101,11 +1116,11 @@ export default function BaseChatPage() {
         }
         .scoutai-send-btn {
           font-family: inherit;
-          transition: all 0.2s;
+          transition: background-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
         }
         .scoutai-send-text {
           margin-left: 0.25rem;
-          transition: all 0.3s ease-in-out;
+          transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
           white-space: nowrap;
         }
         .scoutai-send-svg {

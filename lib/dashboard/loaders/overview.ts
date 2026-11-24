@@ -17,17 +17,9 @@ export async function loadOverviewWidget(
         generatedAt: new Date().toISOString(),
         payload: { kind: "geo_map", data },
       };
-    } catch (err: any) {
-      return {
-        ok: true,
-        widgetId,
-        generatedAt: new Date().toISOString(),
-        payload: {
-          kind: "empty",
-          reason: "Não foi possível carregar os dados do mapa.",
-          hint: err?.message,
-        },
-      };
+    } catch (err) {
+      console.error("loadOverviewWidget(geo_map) error", err);
+      return { ok: false, widgetId, error: "Não foi possível carregar os dados do mapa." };
     }
   }
 

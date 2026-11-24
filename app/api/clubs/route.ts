@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
+
+export const dynamic = "force-dynamic";
 
 function slugify(nome: string) {
   return nome
@@ -47,48 +51,66 @@ const CreateClubSchema = z
     { message: "Localização inválida: BR exige stateCode/stateName e countryName.", path: ["countryCode"] }
   );
 
-export async function GET() {
-  const clubs = await prisma.club.findMany({
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true, slug: true, logoUrl: true, createdAt: true, updatedAt: true },
-  });
-  return NextResponse.json(clubs);
+export async function GET(req: Request) {
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+
+  try {
+    const clubs = await prisma.club.findMany({
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, slug: true, logoUrl: true, createdAt: true, updatedAt: true },
+    });
+    return NextResponse.json(clubs);
+  } catch (err) {
+    return handleRouteError(err, "GET /api/clubs", "Erro ao buscar clubes");
+  }
 }
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const parsed = CreateClubSchema.parse(body);
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
 
-  const nome = (parsed.nome ?? parsed.name)!.trim();
-  const baseSlug = slugify(nome);
+  try {
+    const body = await req.json().catch(() => null);
+    const result = CreateClubSchema.safeParse(body);
+    if (!result.success) {
+      return apiError(400, result.error.issues[0]?.message ?? "Dados inválidos");
+    }
+    const parsed = result.data;
 
-  if (!baseSlug) return NextResponse.json({ error: "Nome inválido." }, { status: 400 });
+    const nome = (parsed.nome ?? parsed.name)!.trim();
+    const baseSlug = slugify(nome);
 
-  let slug = baseSlug;
-  let i = 1;
-  while (await prisma.club.findUnique({ where: { slug } })) {
-    i += 1;
-    slug = `${baseSlug}-${i}`;
+    if (!baseSlug) return apiError(400, "Nome inválido.");
+
+    let slug = baseSlug;
+    let i = 1;
+    while (await prisma.club.findUnique({ where: { slug } })) {
+      i += 1;
+      slug = `${baseSlug}-${i}`;
+    }
+
+    const cc = parsed.countryCode?.trim() ? upper(parsed.countryCode) : null;
+
+    const club = await prisma.club.create({
+      data: {
+        nome,
+        slug,
+        logoUrl: parsed.logoUrl?.trim() ? parsed.logoUrl.trim() : null,
+
+        countryCode: cc,
+        countryName: parsed.countryName?.trim() ? parsed.countryName.trim() : null,
+        city: parsed.city?.trim() ? parsed.city.trim() : null,
+        continentCode: parsed.continentCode?.trim() ? upper(parsed.continentCode) : null,
+
+        stateCode: cc === "BR" && parsed.stateCode?.trim() ? upper(parsed.stateCode) : null,
+        stateName: cc === "BR" && parsed.stateName?.trim() ? parsed.stateName.trim() : null,
+      },
+      select: { id: true, nome: true, slug: true, logoUrl: true },
+    });
+
+    return NextResponse.json(club, { status: 201 });
+  } catch (err) {
+    return handleRouteError(err, "POST /api/clubs", "Erro ao criar clube");
   }
-
-  const cc = parsed.countryCode?.trim() ? upper(parsed.countryCode) : null;
-
-  const club = await prisma.club.create({
-    data: {
-      nome,
-      slug,
-      logoUrl: parsed.logoUrl?.trim() ? parsed.logoUrl.trim() : null,
-
-      countryCode: cc,
-      countryName: parsed.countryName?.trim() ? parsed.countryName.trim() : null,
-      city: parsed.city?.trim() ? parsed.city.trim() : null,
-      continentCode: parsed.continentCode?.trim() ? upper(parsed.continentCode) : null,
-
-      stateCode: cc === "BR" && parsed.stateCode?.trim() ? upper(parsed.stateCode) : null,
-      stateName: cc === "BR" && parsed.stateName?.trim() ? parsed.stateName.trim() : null,
-    },
-    select: { id: true, nome: true, slug: true, logoUrl: true },
-  });
-
-  return NextResponse.json(club, { status: 201 });
 }

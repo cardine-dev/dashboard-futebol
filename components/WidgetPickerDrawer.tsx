@@ -16,6 +16,7 @@ import {
   Trash2,
   ChevronDown,
 } from "lucide-react";
+import { useEscape } from "@/hooks/useEscape";
 
 type Props = {
   open: boolean;
@@ -25,8 +26,8 @@ type Props = {
   onChange: (layout: DashboardLayout) => void;
 };
 
-const BASE_BLUE = "#334155";
-const BASE_YELLOW = "#64748B";
+const BASE_BLUE = "var(--ink)";
+const BASE_YELLOW = "var(--accent)";
 
 export function WidgetPickerDrawer({
   open,
@@ -36,6 +37,7 @@ export function WidgetPickerDrawer({
   onChange,
 }: Props) {
   const { t } = useI18n();
+  useEscape(!!open, onClose);
   const [group, setGroup] = useState<WidgetGroup | "all">("all");
   const [showActive, setShowActive] = useState(true);
 
@@ -108,12 +110,12 @@ export function WidgetPickerDrawer({
       <button
         type="button"
         aria-label={t.widgetPicker.fechar}
-        className="flex-1 bg-black/35 cursor-pointer"
+        className="backdrop-in flex-1 bg-[var(--scrim)] backdrop-blur-[1px] cursor-pointer"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="w-full max-w-[680px] bg-white shadow-2xl flex flex-col">
+      <div className="drawer-in w-full max-w-[680px] bg-[var(--surface)] shadow-[var(--shadow-3)] flex flex-col rounded-l-[18px] overflow-hidden">
         {/* Header (fixo) */}
         <div className="border-b border-slate-200 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -122,8 +124,8 @@ export function WidgetPickerDrawer({
                 <span
                   className="grid h-9 w-9 place-items-center rounded-xl border"
                   style={{
-                    backgroundColor: `${BASE_BLUE}10`,
-                    borderColor: `${BASE_BLUE}20`,
+                    backgroundColor: `color-mix(in oklab, var(--ink) 6%, transparent)`,
+                    borderColor: `color-mix(in oklab, var(--ink) 13%, transparent)`,
                   }}
                 >
                   <SlidersHorizontal
@@ -133,7 +135,7 @@ export function WidgetPickerDrawer({
                 </span>
 
                 <div className="min-w-0">
-                  <div className="text-sm font-extrabold text-slate-900">
+                  <div className="text-sm font-semibold text-gray-950">
                     {t.widgetPicker.personalizar}
                   </div>
                   <div className="mt-0.5 text-xs text-slate-500">
@@ -160,14 +162,14 @@ export function WidgetPickerDrawer({
                   onClick={() => setShowActive((s) => !s)}
                   className={[
                     "inline-flex items-center justify-center gap-2",
-                    "rounded-xl px-3 py-1.5 text-xs font-extrabold",
+                    "rounded-xl px-3 py-1.5 text-xs font-semibold",
                     "border shadow-sm transition cursor-pointer",
                     "hover:opacity-90 active:scale-[0.99]",
                     "text-white",
                   ].join(" ")}
                   style={{
                     backgroundColor: BASE_BLUE,
-                    borderColor: `${BASE_BLUE}40`,
+                    borderColor: `color-mix(in oklab, var(--ink) 25%, transparent)`,
                   }}
                   title={t.widgetPicker.verAtivos}
                 >
@@ -187,7 +189,7 @@ export function WidgetPickerDrawer({
                 type="button"
                 onClick={clearAll}
                 disabled={layout.enabled.length === 0}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                className="inline-flex items-center gap-2 surface px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 title={t.widgetPicker.limpar}
               >
                 <Trash2 className="h-4 w-4" />
@@ -197,7 +199,7 @@ export function WidgetPickerDrawer({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-extrabold text-black cursor-pointer hover:brightness-95"
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-black cursor-pointer hover:brightness-95"
                 style={{ backgroundColor: BASE_YELLOW }}
                 title={t.widgetPicker.fechar}
               >
@@ -210,7 +212,7 @@ export function WidgetPickerDrawer({
           {showActive && (
             <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/40 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <div className="text-xs font-semibold text-slate-500">
                   {t.widgetPicker.ativos}
                 </div>
                 <div className="text-xs text-slate-500">
@@ -237,7 +239,7 @@ export function WidgetPickerDrawer({
         <div className="flex-1 overflow-auto">
           {/* Groups (centralizado) */}
           <div className="border-b border-slate-100 px-4 py-3">
-            <div className="inline-flex w-full flex-wrap justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+            <div className="inline-flex w-full flex-wrap justify-center gap-2 surface p-2">
               <GroupTab
                 active={group === "all"}
                 onClick={() => setGroup("all")}
@@ -266,7 +268,7 @@ export function WidgetPickerDrawer({
           {/* List */}
           <div className="px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <div className="text-xs font-semibold text-slate-500">
                 {t.widgetPicker.widgets}
               </div>
               <div className="text-xs text-slate-500">
@@ -289,7 +291,7 @@ export function WidgetPickerDrawer({
                     ].join(" ")}
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-bold text-slate-900">
+                      <div className="truncate text-sm font-bold text-gray-950">
                         {w.title}
                       </div>
 
@@ -306,11 +308,11 @@ export function WidgetPickerDrawer({
 
                         {enabled ? (
                           <span
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold"
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
                             style={{
-                              backgroundColor: `${BASE_BLUE}10`,
+                              backgroundColor: `color-mix(in oklab, var(--ink) 6%, transparent)`,
                               color: BASE_BLUE,
-                              border: `1px solid ${BASE_BLUE}20`,
+                              border: `1px solid color-mix(in oklab, var(--ink) 13%, transparent)`,
                             }}
                           >
                             {t.widgetPicker.ativoLabel}
@@ -328,7 +330,7 @@ export function WidgetPickerDrawer({
                       type="button"
                       onClick={() => toggleWidget(w.id)}
                       className={[
-                        "shrink-0 rounded-xl px-3 py-2 text-xs font-extrabold transition cursor-pointer",
+                        "shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer",
                         enabled
                           ? "text-white hover:opacity-95"
                           : "text-black hover:brightness-95",
@@ -394,7 +396,7 @@ function GroupTab({
       <span className="truncate">{label}</span>
       <span
         className={[
-          "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold",
+          "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
           active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-700",
         ].join(" ")}
       >

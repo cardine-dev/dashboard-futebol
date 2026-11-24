@@ -9,6 +9,7 @@ import SuccessDialog from "@/components/Atoms/SuccessDialog";
 import JogadorForm, { type JogadorFormModel } from "@/components/JogadorForm";
 import AdminButton from "@/components/Atoms/AdminButton";
 import { useI18n } from "@/contexts/I18nContext";
+import { invalidatePlayers } from "@/lib/client/playersStore";
 
 function createEmptyForm(): JogadorFormModel {
   return {
@@ -90,6 +91,7 @@ export default function NovoJogadorPage() {
       }
 
       setCreatedId(created.id);
+      invalidatePlayers();
       setSuccessMsg(t.adminNovo.criadoSucesso);
     } catch (err: any) {
       console.error(err);
@@ -113,7 +115,7 @@ export default function NovoJogadorPage() {
         </button>
       ) : null}
 
-      <AdminButton label={t.adminNovo.voltar} icon={ArrowLeft} href="/admin/jogadores" />
+      <AdminButton label={t.adminNovo.voltar} icon={ArrowLeft} variant="ghost" href="/admin/jogadores" />
     </div>
   );
 
@@ -137,7 +139,7 @@ export default function NovoJogadorPage() {
         }}
       />
 
-      <section className="mx-auto w-full max-w-5xl bg-gray-50 p-6">
+      <section className="mx-auto w-full max-w-5xl">
         <PageTitle
           base="Admin"
           title={t.adminNovo.title}

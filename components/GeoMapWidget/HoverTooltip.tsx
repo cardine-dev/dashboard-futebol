@@ -36,7 +36,7 @@ export default function HoverTooltip({
             <div className="mt-0.5 text-xs text-slate-500">{meta.subtitle}</div>
           ) : null}
         </div>
-        <span className="mt-1 inline-flex h-2.5 w-2.5 flex-none rounded-full bg-[#64748B]" />
+        <span className="mt-1 inline-flex h-2.5 w-2.5 flex-none rounded-full bg-[var(--accent)]" />
       </div>
 
       {meta.hint ? (

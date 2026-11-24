@@ -90,7 +90,7 @@ export default function PerfilSegurancaPage() {
   return (
     <section className="p-6 max-w-2xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <div className="h-9 w-9 rounded-xl border border-gray-200 bg-white grid place-items-center">
+        <div className="h-9 w-9 surface grid place-items-center">
           <Lock className="w-4 h-4 text-gray-700" />
         </div>
         <div>
@@ -115,7 +115,7 @@ export default function PerfilSegurancaPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4">
+      <div className="surface px-5 py-4">
         <h2 className="text-sm font-semibold text-gray-800">{t.seguranca.trocarSenha}</h2>
 
         <form onSubmit={onSubmit} className="mt-4 space-y-4">
@@ -225,7 +225,7 @@ export default function PerfilSegurancaPage() {
             <button
               type="submit"
               disabled={!validation.ok || submitting}
-              className="rounded-lg bg-[#94a3b8] px-4 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8] disabled:opacity-60 disabled:cursor-not-allowed"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? t.seguranca.salvando : t.seguranca.salvarNovaSenha}
             </button>

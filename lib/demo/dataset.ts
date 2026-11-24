@@ -24,8 +24,27 @@ const between = (min: number, max: number) => min + rnd() * (max - min);
 const intBetween = (min: number, max: number) => Math.floor(between(min, max + 1));
 const id = (p: string, n: number) => `${p}_${String(n).padStart(3, "0")}`;
 
-const NOW = new Date("2026-06-02T12:00:00Z");
-const CURRENT_YEAR = 2026;
+/**
+ * "Hoje" = data real do servidor (calculada quando o módulo carrega). Tudo que é
+ * temporal (contratos, transferências, idades) é relativo a ela, então a demo
+ * nunca mostra transferência no futuro nem contrato "vencido" por data fixa.
+ * O PRNG continua com semente fixa: a estrutura dos dados é estável entre reinícios.
+ */
+export const NOW = new Date();
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysFromNow = (days: number) => new Date(NOW.getTime() + days * DAY_MS);
+const monthsFromNow = (months: number) => {
+  const d = new Date(NOW);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d;
+};
+/** Idade completa em `at` para quem nasceu em `birth`. */
+const ageAt = (birth: Date, at: Date) => {
+  let age = at.getUTCFullYear() - birth.getUTCFullYear();
+  const m = at.getUTCMonth() - birth.getUTCMonth();
+  if (m < 0 || (m === 0 && at.getUTCDate() < birth.getUTCDate())) age -= 1;
+  return age;
+};
 
 /* ----------------------------- Usuários ----------------------------- */
 export type DemoUser = {
@@ -87,9 +106,9 @@ const clubSeed: Array<[string, string, string, string, string, string]> = [
   ["Náutico Recôncavo", "BR", "Brasil", "BA", "Bahia", "Feira de Santana"],
   ["Clube do Cerrado", "BR", "Brasil", "GO", "Goiás", "Anápolis"],
   ["Lisboa Atlântico", "PT", "Portugal", null, null, "Lisboa"],
-  ["River Plate Sur", "AR", "Argentina", null, null, "Buenos Aires"],
-  ["Valencia Mediterráneo", "ES", "Espanha", null, null, "Valência"],
-  ["Austin City SC", "US", "Estados Unidos", null, null, "Austin"],
+  ["Atlético Ribera Sur", "AR", "Argentina", null, null, "Buenos Aires"],
+  ["Albufera CF", "ES", "Espanha", null, null, "Valência"],
+  ["Austin Prairie SC", "US", "Estados Unidos", null, null, "Austin"],
 ];
 
 export const clubs: DemoClub[] = clubSeed.map(
@@ -163,8 +182,23 @@ const NACIONALIDADES = ["Brasil", "Brasil", "Brasil", "Argentina", "Portugal", "
 const CIDADES = ["São Paulo", "Rio de Janeiro", "Belo Horizonte", "Porto Alegre", "Salvador", "Curitiba"];
 const SITUACOES = ["Ativo", "Ativo", "Emprestado", "Em negociação"];
 
+/** Contrato relativo a hoje: ~1 em 4 vence em 3–9 meses (alimenta o widget de risco). */
+function contractFor(): { inicio: Date; fim: Date } {
+  const inicio = monthsFromNow(-intBetween(6, 42));
+  const roll = rnd();
+  const fim =
+    roll < 0.25
+      ? monthsFromNow(intBetween(3, 9))
+      : roll < 0.4
+        ? monthsFromNow(intBetween(10, 18))
+        : monthsFromNow(intBetween(19, 54));
+  return { inicio, fim };
+}
+
 export const players: DemoPlayer[] = Array.from({ length: 48 }, (_, i) => {
-  const idade = intBetween(16, 34);
+  // nascimento sorteado → idade e ano de nascimento sempre coerentes com hoje
+  const birth = daysFromNow(-Math.round(between(16, 34.99) * 365.25));
+  const idade = ageAt(birth, NOW);
   const posicao = pick(POSICOES);
   // valor maior pra MEI/ATA jovens; menor pra GOL/idade alta
   const baseVal = posicao === "ATA" || posicao === "MEI" ? between(2, 42) : between(0.4, 22);
@@ -172,6 +206,7 @@ export const players: DemoPlayer[] = Array.from({ length: 48 }, (_, i) => {
   const valorMercado = Math.round(baseVal * ageFactor * 10) / 10;
   const hasClub = rnd() > 0.12;
   const possePct = rnd() > 0.15 ? intBetween(20, 100) : null;
+  const contrato = contractFor();
   return {
     id: id("plr", i + 1),
     nome: `${pick(FIRST)} ${pick(LAST)}`,
@@ -182,15 +217,15 @@ export const players: DemoPlayer[] = Array.from({ length: 48 }, (_, i) => {
     valorMercado,
     altura: Math.round(between(1.66, 1.98) * 100) / 100,
     situacao: pick(SITUACOES),
-    contratoInicio: new Date(`${CURRENT_YEAR - intBetween(1, 4)}-01-15T00:00:00Z`),
-    contratoFim: new Date(`${CURRENT_YEAR + intBetween(1, 4)}-12-31T00:00:00Z`),
+    contratoInicio: contrato.inicio,
+    contratoFim: contrato.fim,
     imagemUrl: null,
-    createdAt: new Date("2026-02-01T10:00:00Z"),
-    updatedAt: new Date("2026-02-01T10:00:00Z"),
+    createdAt: monthsFromNow(-intBetween(1, 10)),
+    updatedAt: daysFromNow(-intBetween(0, 30)),
     numeroCamisa: intBetween(1, 45),
     representacao: pick(AGENCIES),
     possePct,
-    anoNascimento: CURRENT_YEAR - idade,
+    anoNascimento: birth.getUTCFullYear(),
     cidade: pick(CIDADES),
     nacionalidade: pick(NACIONALIDADES),
     empresario: pick(AGENCIES),
@@ -225,36 +260,67 @@ export type DemoTransfer = {
   dedupeKey: string | null;
 };
 
-const EXT_CLUBS = [
-  ["FC Porto", "Portugal"], ["Benfica", "Portugal"], ["Ajax", "Holanda"],
-  ["Sevilla", "Espanha"], ["Lyon", "França"], ["Boca Juniors", "Argentina"],
-  ["Shakhtar", "Ucrânia"], ["Brighton", "Inglaterra"], ["Udinese", "Itália"],
-  ["River Plate", "Argentina"], ["Palmeiras", "Brasil"], ["Flamengo", "Brasil"],
+/**
+ * Clubes de mercado INVENTADOS (nomes plausíveis, países reais). Nenhum clube real.
+ * [nome, país, cidade]
+ */
+const EXT_CLUBS: Array<[string, string, string]> = [
+  ["Atlético Ribeira", "Brasil", "Ribeirão Preto"],
+  ["Esporte Clube Vale Verde", "Brasil", "Joinville"],
+  ["Sociedade Litoral Norte", "Brasil", "Fortaleza"],
+  ["Sporting Douro", "Portugal", "Porto"],
+  ["União Tejo", "Portugal", "Santarém"],
+  ["Real Cantábrico", "Espanha", "Santander"],
+  ["Deportivo Sierra Alta", "Espanha", "Granada"],
+  ["Olympique Rhône-Alpes", "França", "Grenoble"],
+  ["FC Lagune", "França", "Montpellier"],
+  ["Polder United", "Holanda", "Zwolle"],
+  ["Atlético Pampa Sur", "Argentina", "Rosario"],
+  ["Club Ribera del Plata", "Argentina", "La Plata"],
+  ["Dínamo Carpático", "Ucrânia", "Lviv"],
+  ["AC Laguna Veneta", "Itália", "Treviso"],
+  ["Calcio Appennino", "Itália", "Perugia"],
+  ["Harbour Town FC", "Inglaterra", "Plymouth"],
 ];
 
+/** Transferências espalhadas nos últimos ~30 meses, todas com data ≤ hoje. */
+const TRANSFER_WINDOW_DAYS = 30 * 30;
+
+/** Índice aleatório diferente de `except`. */
+const otherIdx = (except: number, n: number) => (except + 1 + Math.floor(rnd() * (n - 1))) % n;
+
 export const transferencias: DemoTransfer[] = Array.from({ length: 44 }, (_, i) => {
-  const [origem, paisOrigem] = pick(EXT_CLUBS);
-  const [destino, paisDestino] = pick(EXT_CLUBS);
-  const month = intBetween(1, 12);
-  const year = 2024 + intBetween(0, 2);
+  const origemIdx = Math.floor(rnd() * EXT_CLUBS.length);
+  // destino sempre diferente da origem
+  const destinoIdx = otherIdx(origemIdx, EXT_CLUBS.length);
+  // formador sorteado à parte: ~60% das vezes é outro clube que não a origem
+  const formadorIdx = rnd() < 0.6 ? otherIdx(origemIdx, EXT_CLUBS.length) : origemIdx;
+
+  const [origem] = EXT_CLUBS[origemIdx];
+  const [destino, paisDestino, cidadeDestino] = EXT_CLUBS[destinoIdx];
+  const [formador, paisFormador, cidadeFormador] = EXT_CLUBS[formadorIdx];
+
+  const dataTransferencia = daysFromNow(-intBetween(1, TRANSFER_WINDOW_DAYS));
+  dataTransferencia.setUTCHours(0, 0, 0, 0);
   const valor = Math.round(between(0.3, 28) * 1_000_000);
+
   return {
     id: id("trf", i + 1),
     atletaNome: `${pick(FIRST)} ${pick(LAST)}`,
     atletaIdade: intBetween(17, 31),
     atletaPosicao: pick(POSICOES),
-    clubeFormador: origem,
-    cidadeClubeFormador: null,
-    paisClubeFormador: paisOrigem,
+    clubeFormador: formador,
+    cidadeClubeFormador: cidadeFormador,
+    paisClubeFormador: paisFormador,
     clubeOrigem: origem,
     clubeDestino: destino,
-    cidadeClubeDestino: null,
+    cidadeClubeDestino: cidadeDestino,
     paisClubeDestino: paisDestino,
-    dataTransferencia: new Date(`${year}-${String(month).padStart(2, "0")}-10T00:00:00Z`),
+    dataTransferencia,
     valor,
     moeda: "EUR",
     fonte: "Mercado (demo)",
-    criadoEm: NOW,
+    criadoEm: dataTransferencia,
     dedupeKey: `dk_${i + 1}`,
   };
 });
@@ -281,7 +347,7 @@ export const reports: DemoReport[] = [
       "antes da próxima janela.",
     userId: "user_admin",
     conversationId: "conv_001",
-    createdAt: new Date("2026-05-20T15:00:00Z"),
+    createdAt: daysFromNow(-12),
   },
   {
     id: "rep_002",
@@ -291,7 +357,7 @@ export const reports: DemoReport[] = [
       "O volume de transações se concentra no segundo semestre.",
     userId: "user_admin",
     conversationId: null,
-    createdAt: new Date("2026-05-28T11:00:00Z"),
+    createdAt: daysFromNow(-4),
   },
 ];
 
@@ -317,8 +383,8 @@ export const chatConversations: DemoConversation[] = [
     id: "conv_001",
     title: "Oportunidades de venda",
     userId: "user_admin",
-    createdAt: new Date("2026-05-20T14:30:00Z"),
-    updatedAt: new Date("2026-05-20T14:45:00Z"),
+    createdAt: daysFromNow(-12.1),
+    updatedAt: daysFromNow(-12.09),
   },
 ];
 
@@ -330,7 +396,7 @@ export const chatMessages: DemoMessage[] = [
     content: "Quais jogadores têm maior potencial de revenda?",
     toolTraces: null,
     attachments: null,
-    createdAt: new Date("2026-05-20T14:31:00Z"),
+    createdAt: daysFromNow(-12.099),
   },
   {
     id: "msg_002",
@@ -341,6 +407,6 @@ export const chatMessages: DemoMessage[] = [
       "acima de 70% são os de maior potencial de revenda.",
     toolTraces: null,
     attachments: null,
-    createdAt: new Date("2026-05-20T14:32:00Z"),
+    createdAt: daysFromNow(-12.098),
   },
 ];

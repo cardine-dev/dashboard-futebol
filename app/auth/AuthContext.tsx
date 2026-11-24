@@ -10,7 +10,8 @@ import React, {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Role } from "@prisma/client";
+/** Espelho local do enum Role do Prisma — código client não importa @prisma/client. */
+type Role = "ADMIN" | "CLIENT";
 import { useI18n } from "@/contexts/I18nContext";
 
 interface User {
@@ -147,6 +148,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // garante boot só uma vez
     if (didBoot.current) return;
     didBoot.current = true;
+
+    // Na tela de login não há sessão para hidratar (o proxy já manda quem está
+    // logado para o painel): evita um 401 inútil no console.
+    if (pathname === "/login") {
+      setLoading(false);
+      return;
+    }
 
     (async () => {
       try {

@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Bot, User } from "lucide-react";
 
-const BASE_BLUE = "#334155";
+const BASE_BLUE = "var(--ink)";
 
 export type MessageRole = "user" | "assistant";
 
@@ -31,8 +31,8 @@ export function ChatMessageBubble({
         <div
           className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
           style={{
-            background: `${BASE_BLUE}14`,
-            border: `1.5px solid ${BASE_BLUE}22`,
+            background: `color-mix(in oklab, var(--ink) 8%, transparent)`,
+            border: `1.5px solid color-mix(in oklab, var(--ink) 13%, transparent)`,
           }}
         >
           <Bot size={14} style={{ color: BASE_BLUE }} />
@@ -196,8 +196,8 @@ export function ChatMessageBubble({
         <div
           className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
           style={{
-            background: `${BASE_BLUE}22`,
-            border: `1.5px solid ${BASE_BLUE}44`,
+            background: `color-mix(in oklab, var(--ink) 13%, transparent)`,
+            border: `1.5px solid color-mix(in oklab, var(--ink) 27%, transparent)`,
           }}
         >
           <User size={14} style={{ color: BASE_BLUE }} />

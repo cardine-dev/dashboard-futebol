@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <path d="M32 3 8 11v18c0 15.6 10.1 27.4 24 32 13.9-4.6 24-16.4 24-32V11L32 3Z" fill="#0b7a45"/>
+  <path d="M32 3 8 11v18c0 15.6 10.1 27.4 24 32 13.9-4.6 24-16.4 24-32V11L32 3Z" stroke="#06331d" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M32 9.5 14 15.6V29c0 11.9 7.4 21 18 25.1 10.6-4.1 18-13.2 18-25.1V15.6L32 9.5Z" stroke="#ffffff" stroke-opacity=".9" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M14 30h36" stroke="#ffffff" stroke-opacity=".9" stroke-width="1.5"/>
+  <circle cx="32" cy="30" r="7" stroke="#ffffff" stroke-opacity=".9" stroke-width="1.5"/>
+  <circle cx="32" cy="30" r="1.6" fill="#ffffff"/>
+  <path d="M26 15.8v4.4h12v-4.4" stroke="#ffffff" stroke-opacity=".9" stroke-width="1.5"/>
+</svg>

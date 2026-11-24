@@ -6,9 +6,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="relative min-h-dvh grid place-items-center bg-[#0f172a]">
-          <div className="text-white">{pt.login.carregando}</div>
-        </div>
+        <div className="min-h-dvh bg-[var(--canvas)]" aria-busy="true" aria-label={pt.login.carregando} />
       }
     >
       <LoginClient />

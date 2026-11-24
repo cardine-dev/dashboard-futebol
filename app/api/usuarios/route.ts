@@ -2,50 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_in_prod";
-const COOKIE_NAME = "app_token";
-
-type Decoded = { sub: string; role: "ADMIN" | "CLIENT" };
-
-function extractBearerToken(authHeader?: string | null): string | null {
-  if (!authHeader) return null;
-  const match = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
-  return match?.[1] ?? null;
-}
-
-function getTokenFromReq(req: NextRequest): string | null {
-  // 1) Authorization: Bearer ...
-  const bearer = extractBearerToken(req.headers.get("authorization"));
-  if (bearer) return bearer;
-
-  // 2) Cookie raw
-  return req.cookies.get(COOKIE_NAME)?.value ?? null;
-}
-
-function verifyToken(token: string): Decoded | null {
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    const sub = typeof payload?.sub === "string" ? payload.sub : null;
-    const role = payload?.role === "ADMIN" || payload?.role === "CLIENT" ? payload.role : null;
-    if (!sub || !role) return null;
-    return { sub, role };
-  } catch {
-    return null;
-  }
-}
-
-function getAuth(req: NextRequest): { token: string | null; decoded: Decoded | null } {
-  const token = getTokenFromReq(req);
-  if (!token) return { token: null, decoded: null };
-  const decoded = verifyToken(token);
-  return { token, decoded };
-}
 
 const userSelect = {
   id: true,
@@ -59,15 +21,10 @@ const userSelect = {
 
 // GET /api/usuarios - listar usuários (apenas admin)
 export async function GET(req: NextRequest) {
-  try {
-    const { decoded } = getAuth(req);
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
 
-    if (!decoded) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-    if (decoded.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-    }
+  try {
 
     const users = await prisma.user.findMany({
       select: userSelect,
@@ -76,22 +33,16 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(users);
   } catch (err) {
-    console.error("Erro em GET /api/usuarios:", err);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    return handleRouteError(err, "GET /api/usuarios");
   }
 }
 
 // POST /api/usuarios - criar usuário (apenas admin)
 export async function POST(req: NextRequest) {
-  try {
-    const { decoded } = getAuth(req);
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
 
-    if (!decoded) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-    if (decoded.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-    }
+  try {
 
     const body = await req.json().catch(() => ({}));
 
@@ -104,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+      return apiError(400, "Dados inválidos");
     }
 
     const name = parsed.data.name.trim();
@@ -113,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json({ error: "Email já registrado" }, { status: 400 });
+      return apiError(409, "Email já registrado");
     }
 
     const passwordHash = await hash(password, 10);
@@ -131,19 +82,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(user, { status: 201 });
   } catch (err) {
-    console.error("Erro em POST /api/usuarios:", err);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    return handleRouteError(err, "POST /api/usuarios");
   }
 }
 
 // PUT /api/usuarios - atualizar perfil do usuário logado (ou outro se ADMIN)
+// Qualquer usuário logado edita o PRÓPRIO perfil; editar outro exige ADMIN.
 export async function PUT(req: NextRequest) {
-  try {
-    const { decoded } = getAuth(req);
+  const auth = await requireUser(req);
+  if (auth instanceof NextResponse) return auth;
+  const decoded = { sub: auth.user.id, role: auth.user.role };
 
-    if (!decoded) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+  try {
 
     const body = await req.json().catch(() => ({}));
 
@@ -155,13 +105,13 @@ export async function PUT(req: NextRequest) {
 
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+      return apiError(400, "Dados inválidos");
     }
 
     const targetUserId = parsed.data.id || decoded.sub;
 
     if (targetUserId !== decoded.sub && decoded.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return apiError(403, "Acesso negado");
     }
 
     const nextData: { name?: string; email?: string } = {};
@@ -173,7 +123,7 @@ export async function PUT(req: NextRequest) {
 
       const existing = await prisma.user.findUnique({ where: { email: nextEmail } });
       if (existing && existing.id !== targetUserId) {
-        return NextResponse.json({ error: "Email já registrado" }, { status: 400 });
+        return apiError(409, "Email já registrado");
       }
 
       nextData.email = nextEmail;
@@ -186,47 +136,30 @@ export async function PUT(req: NextRequest) {
     });
 
     return NextResponse.json(user);
-  } catch (err: any) {
-    console.error("Erro em PUT /api/usuarios:", err);
-
-    if (err?.code === "P2025") {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
-    }
-
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  } catch (err) {
+    return handleRouteError(err, "PUT /api/usuarios");
   }
 }
 
 // DELETE /api/usuarios - deletar usuário (apenas admin)
 export async function DELETE(req: NextRequest) {
-  try {
-    const { decoded } = getAuth(req);
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
 
-    if (!decoded) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-    if (decoded.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-    }
+  try {
 
     const body = await req.json().catch(() => ({}));
     const schema = z.object({ id: z.string().min(1) });
 
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
+      return apiError(400, "ID obrigatório");
     }
 
     await prisma.user.delete({ where: { id: parsed.data.id } });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    console.error("Erro em DELETE /api/usuarios:", err);
-
-    if (err?.code === "P2025") {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
-    }
-
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  } catch (err) {
+    return handleRouteError(err, "DELETE /api/usuarios");
   }
 }

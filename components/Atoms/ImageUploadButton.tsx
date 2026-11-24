@@ -129,7 +129,7 @@ export default function ImageUploadButton({
             type="button"
             onClick={openPicker}
             disabled={disabled || uploading}
-            className="rounded-lg bg-[#94a3b8] px-3 py-2 text-sm font-semibold text-black shadow-sm hover:bg-[#94a3b8] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-[var(--accent-ink)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {uploading ? t.imageUpload.enviando : t.imageUpload.importarImagem}
           </button>
@@ -155,7 +155,7 @@ export default function ImageUploadButton({
       />
 
       <div className="mt-3 flex items-center gap-3">
-        <div className="h-20 w-20 rounded-2xl border border-gray-200 bg-white overflow-hidden grid place-items-center flex-none">
+        <div className="h-20 w-20 surface overflow-hidden grid place-items-center flex-none">
           <img
             src={shownPreview}
             alt=""

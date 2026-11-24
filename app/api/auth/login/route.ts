@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { compare } from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { AUTH_COOKIE, isAppRole, sessionCookieOptions, signSessionToken } from "@/lib/jwt";
+import { apiError } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_in_prod";
-const JWT_EXPIRES_IN = "7d";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
 });
-
-function signToken(userId: string, role: string) {
-  return jwt.sign({ sub: userId, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,7 +21,7 @@ export async function POST(req: NextRequest) {
     const parsed = loginSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: "Email e senha obrigatórios" }, { status: 400 });
+      return apiError(400, "Email e senha obrigatórios");
     }
 
     const { email, password } = parsed.data;
@@ -47,41 +40,38 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!user || !user.passwordHash) {
-      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 });
+    if (!user || !user.passwordHash || !isAppRole(user.role)) {
+      return apiError(401, "Credenciais inválidas");
     }
 
     const isValid = await compare(password, user.passwordHash);
     if (!isValid) {
-      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 });
+      return apiError(401, "Credenciais inválidas");
     }
 
-    const token = signToken(user.id, user.role);
+    const token = await signSessionToken(user.id, user.role);
 
-    const res = NextResponse.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt,
-        image: user.image,
-        mustChangePassword: user.mustChangePassword,
+    // O JWT vai só no cookie httpOnly — nunca no corpo da resposta.
+    const res = NextResponse.json(
+      {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt,
+          image: user.image,
+          mustChangePassword: user.mustChangePassword,
+        },
       },
-    });
+      { headers: { "Cache-Control": "no-store" } },
+    );
 
-    res.cookies.set("app_token", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: COOKIE_MAX_AGE,
-    });
+    res.cookies.set(AUTH_COOKIE, token, sessionCookieOptions());
 
     return res;
   } catch (err) {
     console.error("Erro em /api/auth/login:", err);
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+    return apiError(500, "Erro interno do servidor");
   }
 }

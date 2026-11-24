@@ -173,20 +173,20 @@ export default function TransferenciasTable() {
   }
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm">
+    <div className="surface overflow-hidden">
       {/* toolbar / filtros */}
-      <div className="p-4 border-b flex flex-wrap gap-2 items-center">
+      <div className="p-3 border-b border-[var(--hairline)] flex flex-wrap gap-2 items-center">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t.transferenciasTable.buscar}
-          className="h-10 w-full sm:w-[280px] rounded-lg border px-3"
+          className="input h-10 sm:w-[280px]"
         />
 
         <select
           value={pos}
           onChange={(e) => setPos(e.target.value)}
-          className="h-10 rounded-lg border px-3"
+          className="input h-10 w-auto cursor-pointer"
         >
           <option value="">{t.transferenciasTable.posicao}</option>
           <option value="Ponta">{t.transferenciaPosicoes.ponta}</option>
@@ -202,7 +202,7 @@ export default function TransferenciasTable() {
           value={pais}
           onChange={(e) => setPais(e.target.value)}
           placeholder={t.transferenciasTable.paisDestino}
-          className="h-10 w-[180px] rounded-lg border px-3 hidden md:block"
+          className="input h-10 w-[180px] hidden md:block"
         />
 
         <div className="ml-auto flex items-center gap-2">
@@ -219,7 +219,7 @@ export default function TransferenciasTable() {
           <button
             disabled={selectedIds.length === 0}
             onClick={() => setDeleteOpen(true)}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border bg-background hover:bg-muted/40 disabled:opacity-50"
+            className="btn btn-ghost h-10 cursor-pointer hover:!text-[var(--bad)]"
             title={
               selectedIds.length === 0
                 ? t.transferenciasTable.selecionePeloMenos
@@ -244,7 +244,7 @@ export default function TransferenciasTable() {
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="h-10 rounded-lg border px-2"
+              className="input h-10 w-auto cursor-pointer"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -257,9 +257,9 @@ export default function TransferenciasTable() {
       {/* tabela */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/40">
+          <thead className="bg-[var(--surface-2)] text-[12px] text-gray-500">
             <tr>
-              <th className="p-3 w-11">
+              <th className="p-3 font-medium w-11">
                 <input
                   type="checkbox"
                   checked={allOnPageSelected}
@@ -272,14 +272,14 @@ export default function TransferenciasTable() {
                   className="h-4 w-4"
                 />
               </th>
-              <th className="p-3 text-left">{t.transferenciasTable.atleta}</th>
-              <th className="p-3">{t.transferenciasTable.idade}</th>
-              <th className="p-3">{t.transferenciasTable.posicao}</th>
-              <th className="p-3 hidden lg:table-cell">{t.transferenciasTable.formador}</th>
-              <th className="p-3 hidden xl:table-cell">{t.transferenciasTable.origem}</th>
-              <th className="p-3">{t.transferenciasTable.destino}</th>
-              <th className="p-3">{t.transferenciasTable.data}</th>
-              <th className="p-3 text-right">{t.transferenciasTable.valor}</th>
+              <th className="p-3 font-medium text-left">{t.transferenciasTable.atleta}</th>
+              <th className="p-3 font-medium">{t.transferenciasTable.idade}</th>
+              <th className="p-3 font-medium">{t.transferenciasTable.posicao}</th>
+              <th className="p-3 font-medium hidden lg:table-cell">{t.transferenciasTable.formador}</th>
+              <th className="p-3 font-medium hidden xl:table-cell">{t.transferenciasTable.origem}</th>
+              <th className="p-3 font-medium">{t.transferenciasTable.destino}</th>
+              <th className="p-3 font-medium">{t.transferenciasTable.data}</th>
+              <th className="p-3 font-medium text-right">{t.transferenciasTable.valor}</th>
             </tr>
           </thead>
 
@@ -298,7 +298,7 @@ export default function TransferenciasTable() {
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.id} className="border-t hover:bg-muted/30">
+                <tr key={r.id} className="border-t border-[var(--hairline)] transition-colors hover:bg-[var(--surface-2)]">
                   <td className="p-3">
                     <input
                       type="checkbox"
@@ -321,8 +321,8 @@ export default function TransferenciasTable() {
                       </span>
                     </div>
                   </td>
-                  <td className="p-3 text-center">{fmtDate(r.dataTransferencia)}</td>
-                  <td className="p-3 text-right tabular-nums">{fmtMoney(r.valor)}</td>
+                  <td className="p-3 text-center num text-gray-600">{fmtDate(r.dataTransferencia)}</td>
+                  <td className="p-3 text-right num font-medium text-gray-950">{fmtMoney(r.valor)}</td>
                 </tr>
               ))
             )}
@@ -331,11 +331,11 @@ export default function TransferenciasTable() {
       </div>
 
       {/* paginação */}
-      <div className="p-4 border-t flex items-center justify-between">
+      <div className="p-3 border-t border-[var(--hairline)] flex items-center justify-between">
         <button
           disabled={page <= 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
-          className="px-4 py-2 rounded-lg border disabled:opacity-50"
+          className="btn btn-ghost cursor-pointer"
         >
           {t.transferenciasTable.anterior}
         </button>
@@ -347,7 +347,7 @@ export default function TransferenciasTable() {
         <button
           disabled={page >= totalPages}
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          className="px-4 py-2 rounded-lg border disabled:opacity-50"
+          className="btn btn-ghost cursor-pointer"
         >
           {t.transferenciasTable.proxima}
         </button>

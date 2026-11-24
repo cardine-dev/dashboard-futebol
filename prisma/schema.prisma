@@ -122,6 +122,16 @@ model Transferencia {
   @@index([atletaPosicao])
   @@index([dataTransferencia])
   @@index([paisClubeDestino])
+  // listagem: ORDER BY dataTransferencia DESC, atletaNome ASC
+  @@index([dataTransferencia(sort: Desc), atletaNome])
+  // ranking compradores/vendedores e filtro por clube
+  @@index([clubeOrigem])
+  @@index([clubeDestino])
+  // busca "contains insensitive" (ILIKE '%q%') — GIN trigram (extensão pg_trgm)
+  @@index([atletaNome(ops: raw("gin_trgm_ops"))], type: Gin, map: "Transferencia_atletaNome_trgm_idx")
+  @@index([clubeOrigem(ops: raw("gin_trgm_ops"))], type: Gin, map: "Transferencia_clubeOrigem_trgm_idx")
+  @@index([clubeDestino(ops: raw("gin_trgm_ops"))], type: Gin, map: "Transferencia_clubeDestino_trgm_idx")
+  @@index([clubeFormador(ops: raw("gin_trgm_ops"))], type: Gin, map: "Transferencia_clubeFormador_trgm_idx")
 }
 
 enum Role {
@@ -143,7 +153,8 @@ model ChatConversation {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  @@index([userId])
+  // lista do usuário ordenada por updatedAt DESC
+  @@index([userId, updatedAt(sort: Desc)])
 }
 
 model ChatMessage {
@@ -156,7 +167,8 @@ model ChatMessage {
   attachments    Json?
   createdAt      DateTime         @default(now())
 
-  @@index([conversationId])
+  // mensagens da conversa em ordem cronológica
+  @@index([conversationId, createdAt])
 }
 
 model Report {
@@ -169,5 +181,8 @@ model Report {
   conversation   ChatConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   createdAt      DateTime          @default(now())
 
-  @@index([userId])
+  // lista do usuário ordenada por createdAt DESC
+  @@index([userId, createdAt(sort: Desc)])
+  // FK com onDelete SetNull (evita seq scan ao apagar conversa)
+  @@index([conversationId])
 }

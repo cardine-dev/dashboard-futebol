@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { toPng } from "html-to-image";
-import jsPDF from "jspdf";
+// html-to-image e jspdf (~350 KB) só carregam quando alguém clica em exportar
 
 type ExportPdfParams = {
   filename?: string;
@@ -29,8 +28,14 @@ type ExportPdfParams = {
 
 type ImgSize = { w: number; h: number };
 
-const BASE_BLUE = "#334155";
-const BASE_YELLOW = "#64748B";
+const INK_HEX = "#18221e";
+
+/** Cor de acento do clube lida do CSS (white-label), com fallback. */
+function accentHex(): string {
+  if (typeof window === "undefined") return "#0b7a45";
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  return /^#[0-9a-f]{6}$/i.test(v) ? v : "#0b7a45";
+}
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -195,6 +200,7 @@ export function useDashboardPdfExport() {
         }
 
         // ===== 2) gerar PNG do conteúdo inteiro =====
+        const { toPng } = await import("html-to-image");
         const png = await toPng(el, {
           cacheBust: true,
           backgroundColor: "#ffffff",
@@ -244,6 +250,7 @@ export function useDashboardPdfExport() {
           .sort((a, b) => a - b);
 
         // ===== 3) preparar PDF =====
+        const { default: jsPDF } = await import("jspdf");
         const pdf = new jsPDF({ orientation, unit: "mm", format });
 
         const pageW = pdf.internal.pageSize.getWidth();
@@ -260,8 +267,8 @@ export function useDashboardPdfExport() {
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas 2D indisponível.");
 
-        const blue = hexToRgb(BASE_BLUE);
-        const yellow = hexToRgb(BASE_YELLOW);
+        const blue = hexToRgb(INK_HEX);
+        const yellow = hexToRgb(accentHex());
 
         const drawHeaderFooter = (pageIndex1: number, totalPages: number) => {
           if (header) {

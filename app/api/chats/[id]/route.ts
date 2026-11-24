@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/authHelper";
+import { requireUser } from "@/lib/authHelper";
+import { apiError, handleRouteError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,8 +11,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -33,13 +35,12 @@ export async function GET(
     });
 
     if (!conversation) {
-      return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
+      return apiError(404, "Conversa não encontrada");
     }
 
     return NextResponse.json({ conversation });
   } catch (err) {
-    console.error("GET /api/chats/[id] error:", err);
-    return NextResponse.json({ error: "Erro ao buscar conversa" }, { status: 500 });
+    return handleRouteError(err, "GET /api/chats/[id]", "Erro ao buscar conversa");
   }
 }
 
@@ -48,8 +49,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -60,7 +62,7 @@ export async function PATCH(
       : null;
 
     if (!title) {
-      return NextResponse.json({ error: "Título inválido" }, { status: 400 });
+      return apiError(400, "Título inválido");
     }
 
     const conversation = await prisma.chatConversation.updateMany({
@@ -69,13 +71,12 @@ export async function PATCH(
     });
 
     if (conversation.count === 0) {
-      return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
+      return apiError(404, "Conversa não encontrada");
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("PATCH /api/chats/[id] error:", err);
-    return NextResponse.json({ error: "Erro ao atualizar conversa" }, { status: 500 });
+    return handleRouteError(err, "PATCH /api/chats/[id]", "Erro ao atualizar conversa");
   }
 }
 
@@ -84,8 +85,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   const { id } = await params;
 
@@ -95,12 +97,11 @@ export async function DELETE(
     });
 
     if (result.count === 0) {
-      return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
+      return apiError(404, "Conversa não encontrada");
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/chats/[id] error:", err);
-    return NextResponse.json({ error: "Erro ao deletar conversa" }, { status: 500 });
+    return handleRouteError(err, "DELETE /api/chats/[id]", "Erro ao deletar conversa");
   }
 }

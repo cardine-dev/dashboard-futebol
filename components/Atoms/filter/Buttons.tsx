@@ -49,7 +49,7 @@ export function SecondaryBlueButton({
         "cursor-pointer h-10 rounded-xl border px-3 text-sm font-semibold transition",
         "hover:bg-slate-50",
       )}
-      style={{ borderColor: `${BASE_BLUE}40`, color: BASE_BLUE }}
+      style={{ borderColor: `color-mix(in oklab, var(--ink) 25%, transparent)`, color: BASE_BLUE }}
     >
       {children}
     </button>

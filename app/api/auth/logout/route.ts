@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTH_COOKIE } from "@/lib/jwt";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +16,10 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 
   // 1) delete “oficial” (Next 13+/14+/15)
-  res.cookies.delete("app_token");
+  res.cookies.delete(AUTH_COOKIE);
 
   // 2) belt-and-suspenders: seta expirado com os mesmos atributos
-  res.cookies.set("app_token", "", {
+  res.cookies.set(AUTH_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

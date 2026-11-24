@@ -10,6 +10,8 @@ interface AdminButtonProps {
   onClick?: () => void;
   href?: string;
   className?: string;
+  /** primary (padrão) para criar; ghost para voltar/secundário */
+  variant?: "primary" | "ghost";
 }
 
 export default function AdminButton({
@@ -18,9 +20,9 @@ export default function AdminButton({
   onClick,
   href,
   className,
+  variant = "primary",
 }: AdminButtonProps) {
-  const baseClasses =
-    "inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#94a3b8] text-black font-semibold text-sm shadow-sm hover:bg-[#94a3b8] transition";
+  const baseClasses = `btn ${variant === "ghost" ? "btn-ghost" : "btn-primary"} no-underline cursor-pointer`;
 
   if (href) {
     return (

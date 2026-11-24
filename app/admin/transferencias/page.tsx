@@ -14,7 +14,7 @@ export default function AdminTransferenciasPage() {
   );
 
   return (
-    <section className="mx-auto w-full max-w-[1400px] bg-gray-50 p-6">
+    <section className="mx-auto w-full max-w-[1400px]">
       <PageTitle
         base="Admin"
         title={t.adminTransferencias.title}

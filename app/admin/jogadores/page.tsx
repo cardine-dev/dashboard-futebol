@@ -8,6 +8,8 @@ import AdminRow from "@/components/AdminRow";
 import AdminButton from "@/components/Atoms/AdminButton";
 import ConfirmDeleteDialog from "@/components/Atoms/ConfirmDeleteDialog";
 import { useI18n } from "@/contexts/I18nContext";
+import { invalidatePlayers } from "@/lib/client/playersStore";
+import { useToast } from "@/components/ui/Toast";
 
 function formatCreatedAt(input: any) {
   if (!input) return "--/--/----";
@@ -18,6 +20,7 @@ function formatCreatedAt(input: any) {
 
 export default function AdminJogadoresPage() {
   const { t } = useI18n();
+  const toast = useToast();
   const [jogadores, setJogadores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,12 +79,13 @@ export default function AdminJogadoresPage() {
       }
 
       setJogadores((prev) => prev.filter((j) => j.id !== delTarget.id));
+      invalidatePlayers();
+      toast({ title: t.ui.toast.excluido, description: delTarget.nome });
       setDelOpen(false);
       setDelTarget(null);
     } catch (err: any) {
       console.error(err);
-      alert(err?.message ?? t.adminJogadores.erroDeletar);
-      // mantém o modal aberto
+      throw new Error(err?.message ?? t.adminJogadores.erroDeletar);
     }
   }
 
@@ -90,7 +94,7 @@ export default function AdminJogadoresPage() {
   );
 
   return (
-    <section className="mx-auto w-full max-w-6xl bg-gray-50 p-6">
+    <section className="mx-auto w-full max-w-6xl">
       <ConfirmDeleteDialog
         open={delOpen}
         title={t.adminJogadores.deletarTitle}
@@ -119,9 +123,9 @@ export default function AdminJogadoresPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <div className="overflow-hidden surface">
         {/* Cabeçalho */}
-        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div className="grid grid-cols-[0.4fr_1.6fr_1fr_1fr_0.7fr] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold text-slate-700">
           <span />
           <span>{t.adminJogadores.jogador}</span>
           <span>{t.adminJogadores.criadoEm}</span>
@@ -143,7 +147,8 @@ export default function AdminJogadoresPage() {
                 key={j.id}
                 foto={j.imagemUrl}
                 title={j.nome}
-                subtitle={j.posicao}
+                posicao={j.posicao}
+                subtitle={(t.positions as any)[j.posicao] ?? j.posicao}
                 createdAt={formatCreatedAt(j.createdAt)}
                 actions={[
                   { icon: Eye, href: `/jogadores/${j.id}`, color: "blue" },

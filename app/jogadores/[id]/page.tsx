@@ -1,659 +1,560 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowLeft, Columns3, Download, Instagram, Loader2 } from "lucide-react";
 
 import type { Jogador, SeasonStats } from "@/type/jogador";
 import PageTitle from "@/components/Atoms/PageTitle";
-import { ArrowLeft, ChevronDown, Instagram } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
-
-/* ========================= CONSTANTES ========================= */
+import { useAuth } from "@/app/auth/AuthContext";
+import PlayerAvatar from "@/components/ui/PlayerAvatar";
+import StarButton from "@/components/ui/StarButton";
+import Radar from "@/components/ui/Radar";
+import MiniPitch from "@/components/ui/MiniPitch";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { ContractBadge } from "@/components/Card";
+import { useDashboardPdfExport } from "@/hooks/useDashboardPdfExport";
+import { getPlayers } from "@/lib/client/playersStore";
+import { ATRIBUTOS, media, parecidos, perfilDe } from "@/lib/ui/atributos";
+import { corDoSetor } from "@/lib/ui/sector";
+import { dataCurta, eurCompact, eurMi, intlLocale, mesesAte, num } from "@/lib/ui/format";
 
 const PASSPORT_EU = "/assets/passaporte.svg";
 
-const getFootSrc = (
-  n: "direito" | "direito_dominante" | "esquerdo" | "esquerdo_dominante",
-) => `/assets/pe/${n}.svg`;
-
-/* ========================= HELPERS ========================= */
-
-function initials(nome: string) {
-  const p = nome.trim().split(/\s+/);
-  return ((p[0]?.[0] ?? "") + (p[p.length - 1]?.[0] ?? "")).toUpperCase();
-}
-
-// labelDominante is resolved via i18n in the component
-
 function sumStats(all?: Record<string, SeasonStats> | null) {
-  const base = { gols: 0, assistencias: 0, partidas: 0 };
-  if (!all) return base;
-
-  for (const key of Object.keys(all)) {
-    const s = all[key] || {};
-    base.gols += s.gols ?? 0;
-    base.assistencias += s.assistencias ?? 0;
-    base.partidas += s.partidas ?? 0;
+  const acc = { gols: 0, assistencias: 0, partidas: 0 };
+  if (!all) return acc;
+  for (const s of Object.values(all)) {
+    acc.gols += s?.gols ?? 0;
+    acc.assistencias += s?.assistencias ?? 0;
+    acc.partidas += s?.partidas ?? 0;
   }
-
-  return base;
+  return acc;
 }
 
-// converte links de YouTube (watch / youtu.be) para embed
 function toYoutubeEmbed(url: string | null | undefined) {
   if (!url) return null;
-
   try {
     const u = new URL(url);
-
+    if (u.hostname.includes("youtu.be")) return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
     if (u.hostname.includes("youtube.com")) {
       const v = u.searchParams.get("v");
       if (v) return `https://www.youtube.com/embed/${v}`;
       if (u.pathname.startsWith("/embed/")) return url;
     }
-
-    if (u.hostname === "youtu.be") {
-      const id = u.pathname.replace("/", "");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-    }
+    return null;
   } catch {
-    return url;
+    return null;
   }
-
-  return url;
 }
 
-function clampPct01(p?: number | null) {
-  if (typeof p !== "number" || Number.isNaN(p)) return null;
-  if (p < 0) return 0;
-  if (p > 1) return 1;
-  return p;
+function posseFracao(p?: number | null) {
+  if (typeof p !== "number" || !Number.isFinite(p)) return null;
+  const f = p > 1 ? p / 100 : p;
+  return Math.max(0, Math.min(1, f));
 }
-
-function isPct0to1(p?: number | null) {
-  return typeof p === "number" && !Number.isNaN(p) && p >= 0 && p <= 1;
-}
-
-/* ========================= HOOK CLICK OUTSIDE ========================= */
-
-function useClickOutside<T extends HTMLElement>(
-  open: boolean,
-  onClose: () => void,
-) {
-  const ref = useRef<T | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open, onClose]);
-
-  return ref;
-}
-
-/* ========================= SELECT DE TEMPORADA ========================= */
-
-type SeasonValue = "todas" | string;
-
-function SeasonSelect({
-  value,
-  options,
-  onChange,
-  todasLabel,
-}: {
-  value: SeasonValue;
-  options: SeasonValue[];
-  onChange: (v: SeasonValue) => void;
-  todasLabel?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
-
-  const label = (v: SeasonValue) =>
-    v === "todas" ? (todasLabel ?? "Todas as temporadas") : String(v);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        className="inline-flex items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-900 hover:bg-gray-50"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span>{label(value)}</span>
-        <ChevronDown size={16} />
-      </button>
-
-      {open && (
-        <ul
-          className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[220px] rounded-xl border border-gray-200 bg-white p-1.5 shadow"
-          role="listbox"
-        >
-          {options.map((opt) => {
-            const active = opt === value;
-            return (
-              <li
-                key={String(opt)}
-                className={[
-                  "cursor-pointer rounded-lg px-2.5 py-2 text-[13px]",
-                  active ? "bg-gray-200 font-bold" : "hover:bg-gray-100",
-                ].join(" ")}
-                onClick={() => {
-                  onChange(opt);
-                  setOpen(false);
-                }}
-              >
-                {label(opt)}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/* ========================= PÁGINA ========================= */
 
 export default function PlayerDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const { t, locale } = useI18n();
+  const { user } = useAuth();
+  const L = intlLocale(locale);
+  const f = t.ui.ficha;
 
-  const { t } = useI18n();
   const [jogador, setJogador] = useState<Jogador | null>(null);
+  const [todos, setTodos] = useState<Jogador[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [season, setSeason] = useState<SeasonValue>("todas");
+  const [season, setSeason] = useState<string>("todas");
+  const { exportRef, exportPdf, exporting } = useDashboardPdfExport();
 
   useEffect(() => {
     if (!id) return;
-
     let active = true;
-
     (async () => {
       try {
         setLoading(true);
         setError(null);
-
         const res = await fetch(`/api/jogadores/${id}`, { cache: "no-store" });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || `Erro HTTP ${res.status}`);
+          throw new Error(res.status === 404 ? "404" : data.error || `HTTP ${res.status}`);
         }
-
-        const data = (await res.json().catch(() => ({}))) as
-          | { jogador?: Jogador }
-          | Jogador;
-        const j = (data as any)?.jogador ?? data;
-
+        const data = await res.json().catch(() => ({}));
         if (!active) return;
-        setJogador(j as Jogador);
+        setJogador(((data as any)?.jogador ?? data) as Jogador);
       } catch (err: any) {
         if (!active) return;
-        console.error(err);
-        setError(err?.message || "Erro ao carregar jogador.");
+        setError(err?.message || "erro");
         setJogador(null);
       } finally {
         if (active) setLoading(false);
       }
     })();
-
+    getPlayers()
+      .then((all) => active && setTodos(all))
+      .catch(() => {});
     return () => {
       active = false;
     };
   }, [id]);
 
-  if (loading) {
-    return (
-      <section className="mx-auto w-full max-w-[1100px] bg-gray-50 p-6">
-        <p className="text-sm text-gray-700">{t.detail.carregando}</p>
-      </section>
-    );
-  }
+  const perfil = useMemo(() => (jogador ? perfilDe(jogador) : null), [jogador]);
+  const similares = useMemo(() => (jogador && todos.length ? parecidos(jogador, todos, 4) : []), [jogador, todos]);
+
+  if (loading) return <FichaSkeleton />;
 
   if (error || !jogador) {
     return (
-      <section className="mx-auto w-full max-w-[1100px] bg-gray-50 p-6">
-        <PageTitle
-          base={t.common.principal}
-          title={t.nav.jogadores}
-          subtitle={t.detail.naoCarregar}
-          actions={
-            <Link
-              href="/jogadores"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-gray-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t.detail.voltar}
-            </Link>
-          }
-        />
-
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error ? `${t.detail.detalheTecnico}: ${error}` : t.detail.naoEncontrado}
+      <section className="mx-auto w-full max-w-[1200px]">
+        <PageTitle base={t.nav.jogadores} title={f.naoEncontrado} crumbLabel={f.naoEncontrado} />
+        <div className="surface mt-5 grid place-items-center px-6 py-16 text-center">
+          <p className="max-w-md text-[15px] text-gray-600">
+            {error === "404" || !error ? f.naoEncontradoTexto : `${t.detail.detalheTecnico}: ${error}`}
+          </p>
+          <Link href="/jogadores" className="btn btn-dark mt-5 no-underline">
+            <ArrowLeft size={16} aria-hidden />
+            {t.detail.voltar}
+          </Link>
         </div>
       </section>
     );
   }
 
-  const fotoUrl = jogador.imagemUrl || null;
-  const pe = jogador.peDominante;
-  const isDomDireito = pe === "D";
+  const cor = corDoSetor(jogador.posicao);
+  const pos = (t.positions as any)[jogador.posicao] ?? jogador.posicao;
+  const valorEur = (Number(jogador.valorMercado) || 0) * 1e6;
+  const posse = posseFracao(jogador.possePct);
+  const valorClube = posse !== null ? valorEur * posse : null;
+  const clube = jogador.clubeRef?.nome ?? jogador.clubeNome ?? null;
+  const clubeLogo = jogador.clubeRef?.logoUrl ?? null;
 
-  const leftFootSrc = isDomDireito
-    ? getFootSrc("esquerdo")
-    : getFootSrc("esquerdo_dominante");
-  const rightFootSrc = isDomDireito
-    ? getFootSrc("direito_dominante")
-    : getFootSrc("direito");
+  const stats = jogador.statsPorTemporada ?? null;
+  const temStats = !!stats && Object.keys(stats).length > 0;
+  const seasons = temStats ? Object.keys(stats!).sort((a, b) => Number(b) - Number(a)) : [];
+  const s =
+    temStats && season !== "todas"
+      ? { gols: stats![season]?.gols ?? 0, assistencias: stats![season]?.assistencias ?? 0, partidas: stats![season]?.partidas ?? 0 }
+      : sumStats(stats);
+  const video = toYoutubeEmbed(jogador.videoUrl || jogador.youtubeUrl);
 
-  const statsPorTemporada = jogador.statsPorTemporada || null;
-  const temStats = !!(
-    statsPorTemporada && Object.keys(statsPorTemporada).length > 0
-  );
+  const exportar = () =>
+    void exportPdf({
+      filename: `ficha-${jogador.nome.toLowerCase().replace(/\s+/g, "-")}.pdf`,
+      format: "a4",
+      orientation: "portrait",
+      marginMm: 8,
+      scale: 2,
+      blockSelector: `[data-pdf-block="true"]`,
+      header: { title: jogador.nome, subtitle: `${pos} · ${clube ?? ""}`, rightText: new Date().toISOString().slice(0, 10) },
+      footer: { leftText: t.sidebar.appName, pageLabel: t.pdfExport.pagina, ofLabel: t.pdfExport.de },
+    });
 
-  let seasonOptions: SeasonValue[] = ["todas"];
-  if (temStats && statsPorTemporada) {
-    const keys = Object.keys(statsPorTemporada).sort(
-      (a, b) => Number(b) - Number(a),
-    );
-    seasonOptions = ["todas", ...keys];
-  }
-
-  let stats = { gols: 0, assistencias: 0, partidas: 0 };
-  if (temStats && statsPorTemporada) {
-    if (season === "todas") stats = sumStats(statsPorTemporada);
-    else {
-      const s = statsPorTemporada[season] || {};
-      stats = {
-        gols: s.gols ?? 0,
-        assistencias: s.assistencias ?? 0,
-        partidas: s.partidas ?? 0,
-      };
-    }
-  }
-
-  const videoRaw = jogador.videoUrl || jogador.youtubeUrl || null;
-  const videoEmbed = toYoutubeEmbed(videoRaw);
-
-  const showResumo = !!(temStats || videoEmbed);
-  const showInstagram = !!jogador.instagramHandle;
-
-  const valorMercadoInteiro = (jogador.valorMercado ?? 0) * 1_000_000;
-  const mostrarValorMercado = valorMercadoInteiro > 0;
-
-  const posseRaw =
-    typeof jogador.possePct === "number" ? jogador.possePct : null;
-  const posseFrac =
-    posseRaw == null
-      ? null
-      : isPct0to1(posseRaw)
-        ? posseRaw
-        : clampPct01(posseRaw / 100);
-
-  const valorBaseInteiro =
-    posseFrac != null ? valorMercadoInteiro * posseFrac : 0;
-  const mostrarValorBase = valorBaseInteiro > 0;
-
-  const possePctLabel =
-    posseFrac == null ? null : `${(posseFrac * 100).toFixed(1)}%`;
-
-  const clubName = jogador.clubeNome ?? jogador.clubeRef?.nome ?? null;
-  const clubLogo = jogador.clubeRef?.logoUrl ?? null;
-
-  const pageTitle = t.detail.perfilJogador;
-
-  const headerActions = (
-    <Link
-      href="/jogadores"
-      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-gray-50"
-      title={t.nav.jogadores}
-    >
-      <ArrowLeft className="h-4 w-4" />
-      {t.nav.jogadores}
-    </Link>
-  );
+  const attrLabels = Object.fromEntries(ATRIBUTOS.map((a) => [a, (t.ui.compare.atributos as any)[a]])) as any;
 
   return (
-    <section className="mx-auto w-full max-w-[1100px] bg-gray-50 px-[22px] pb-[26px] pt-[18px]">
+    <section className="mx-auto w-full max-w-[1200px]">
       <PageTitle
-        base={t.common.principal}
-        title={pageTitle}
-        subtitle={t.detail.perfilSubtitle}
-        actions={headerActions}
-        className="mb-4"
-        crumbLabel={t.nav.jogadores}
+        base={t.nav.jogadores}
+        title={jogador.nome}
+        crumbLabel={jogador.nome}
+        actions={
+          <>
+            <Link href="/jogadores" className="btn btn-ghost no-underline" data-no-export="true">
+              <ArrowLeft size={16} aria-hidden />
+              {t.nav.jogadores}
+            </Link>
+            <Link href={`/comparar?ids=${jogador.id}`} className="btn btn-ghost no-underline" data-no-export="true">
+              <Columns3 size={16} aria-hidden />
+              {f.comparar}
+            </Link>
+            <button type="button" onClick={exportar} disabled={exporting} className="btn btn-dark cursor-pointer" data-no-export="true">
+              {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} aria-hidden />}
+              {f.exportarFicha}
+            </button>
+          </>
+        }
       />
 
-      <header className="mb-3.5 grid grid-cols-[1fr_auto] items-center gap-4 rounded-[14px] border border-gray-200 bg-white p-[18px]">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="grid h-32 w-32 shrink-0 place-items-center overflow-hidden rounded-full border border-[#e2e8f0] bg-linear-to-br from-[#eef2f6] to-white">
-            {fotoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={fotoUrl}
-                alt={jogador.nome}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-[30px] font-extrabold text-[#334155]">
-                {initials(jogador.nome)}
-              </span>
-            )}
-          </div>
+      <div ref={exportRef} className="mt-5 space-y-4">
+        {/* Cabeçalho do atleta */}
+        <header data-pdf-block="true" className="relative overflow-hidden rounded-[18px] bg-[var(--night-1)] p-5 text-white sm:p-6">
+          <svg aria-hidden className="pointer-events-none absolute -right-10 -top-16 h-[320px] w-[320px] opacity-[0.07]" viewBox="0 0 200 200" fill="none">
+            <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="1.5" />
+            <circle cx="100" cy="100" r="2.5" fill="white" />
+            <line x1="0" y1="100" x2="200" y2="100" stroke="white" strokeWidth="1.5" />
+          </svg>
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-center">
+            <div className="relative">
+              <PlayerAvatar nome={jogador.nome} posicao={jogador.posicao} imagemUrl={jogador.imagemUrl} size={104} rounded="xl" />
+              {jogador.numeroCamisa ? (
+                <span className="num absolute -bottom-2 -right-2 grid h-8 min-w-8 place-items-center rounded-full bg-white px-2 text-[13px] font-semibold text-[var(--ink)] shadow">
+                  {jogador.numeroCamisa}
+                </span>
+              ) : null}
+            </div>
 
-          <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-extrabold text-slate-900">
-              {jogador.nome}
-            </h1>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-[#334155] px-3 py-1.5 text-xs font-extrabold tracking-wide text-white">
-                {(t.positions as any)[jogador.posicao] ?? jogador.posicao}
-              </span>
-
-              <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-900">
-                {t.detail.idade}: {jogador.idade}
-              </span>
-
-              {(() => {
-                const inicio = (jogador as any).contratoInicio;
-                const fim = (jogador as any).contratoFim;
-                if (inicio || fim) {
-                  const fmt = (iso: string) => {
-                    const d = new Date(iso);
-                    const months = [t.meses.jan,t.meses.fev,t.meses.mar,t.meses.abr,t.meses.mai,t.meses.jun,t.meses.jul,t.meses.ago,t.meses.set,t.meses.out,t.meses.nov,t.meses.dez];
-                    return `${months[d.getMonth()]}/${d.getFullYear()}`;
-                  };
-                  const label = `${t.detail.contrato}: ${inicio ? fmt(inicio) : "?"} - ${fim ? fmt(fim) : t.detail.presente}`;
-                  return (
-                    <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-900">
-                      {label}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-[13px] text-[var(--night-ink-2)]">
+                <span className="sector-dot" style={{ background: cor, boxShadow: "0 0 0 2px var(--night-1)" }} aria-hidden />
+                {pos}
+                {jogador.nacionalidade ? <span>· {jogador.nacionalidade}</span> : null}
+              </div>
+              <h2 className="mt-1 truncate text-[30px] font-semibold leading-tight tracking-[-0.03em]">{jogador.nome}</h2>
+              <div className="mt-3 flex flex-wrap gap-2 text-[12.5px]">
+                {[
+                  typeof jogador.idade === "number" ? `${jogador.idade} ${t.ui.common.anos}` : null,
+                  jogador.anoNascimento ? `${jogador.anoNascimento}` : null,
+                  jogador.peDominante ? (t.ui.pe as any)[jogador.peDominante] : null,
+                  jogador.altura ? `${num(jogador.altura, L, 2)} m` : null,
+                  jogador.situacao || null,
+                ]
+                  .filter(Boolean)
+                  .map((x) => (
+                    <span key={String(x)} className="rounded-full bg-white/[0.07] px-2.5 py-1 text-white/85 ring-1 ring-white/10">
+                      {x}
                     </span>
-                  );
-                }
-                return jogador.situacao ? (
-                  <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-900">
-                    {jogador.situacao}
-                  </span>
-                ) : null;
-              })()}
+                  ))}
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[13px] text-gray-600">{t.foot.dominante}:</span>
-              <div className="inline-flex items-center gap-0.5">
-                <img
-                  src={leftFootSrc}
-                  alt=""
-                  aria-hidden
-                  className={isDomDireito ? "h-4 w-4" : "h-[22px] w-[22px]"}
-                />
-                <img
-                  src={rightFootSrc}
-                  alt=""
-                  aria-hidden
-                  className={isDomDireito ? "h-[22px] w-[22px]" : "h-4 w-4"}
-                />
+            <div className="flex items-center gap-3 md:flex-col md:items-end">
+              <div className="flex items-center gap-2.5 rounded-[12px] bg-white/[0.06] px-3 py-2 ring-1 ring-white/10">
+                {clubeLogo ? (
+                  <img src={clubeLogo} alt="" className="h-8 w-8 rounded-full bg-white object-contain" />
+                ) : (
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-[13px] font-semibold">{(clube ?? "?")[0]}</span>
+                )}
+                <div className="leading-tight">
+                  <p className="text-[11px] text-[var(--night-ink-2)]">{t.detail.clube}</p>
+                  <p className="max-w-[200px] truncate text-[13px] font-medium">{clube ?? t.detail.clubeNaoInformado}</p>
+                </div>
               </div>
-              <span className="text-[13px] font-bold text-gray-900">
-                {pe ? (t.foot as any)[pe] : t.foot.naoInformado}
-              </span>
+              <div data-no-export="true" className="rounded-full bg-white/[0.06] ring-1 ring-white/10">
+                <StarButton id={jogador.id} nome={jogador.nome} className="!text-white/70 hover:!bg-white/10 hover:!text-white" />
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        <div className="justify-self-end">
-          {clubName ? (
-            <ClubBadge nome={clubName} logoUrl={clubLogo} />
-          ) : (
-            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
-              {t.detail.clubeNaoInformado}
-            </div>
-          )}
-        </div>
-      </header>
-
-      <section className="mb-3.5 rounded-[14px] border border-gray-200 bg-white p-4">
-        <h2 className="mb-3 text-base font-extrabold text-slate-900">
-          {t.detail.informacoes}
-        </h2>
-
-        <div className="grid grid-cols-3 gap-3">
-          {jogador.cpf ? (
-            <Info
-              label={t.form.cpf}
-              value={jogador.cpf
-                .replace(/\D/g, "")
-                .slice(0, 11)
-                .replace(/(\d{3})(\d)/, "$1.$2")
-                .replace(/(\d{3})(\d)/, "$1.$2")
-                .replace(/(\d{3})(\d{1,2})$/, "$1-$2")}
-            />
-          ) : null}
-
-          {jogador.representacao ? (
-            <Info label={t.detail.representacao} value={jogador.representacao} />
-          ) : null}
-
-          {possePctLabel ? (
-            <Info label={t.detail.posseBase} value={possePctLabel} />
-          ) : null}
-
-          {typeof jogador.numeroCamisa === "number" ? (
-            <Info label={t.detail.numeroCamisa} value={`#${jogador.numeroCamisa}`} />
-          ) : null}
-
-          {typeof jogador.altura === "number" ? (
-            <Info label={t.detail.alturaCm} value={`${jogador.altura} cm`} />
-          ) : null}
-
-          {mostrarValorMercado ? (
-            <Info
-              label={t.detail.valorMercado}
-              value={valorMercadoInteiro.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "EUR",
-              })}
-            />
-          ) : null}
-
-          {mostrarValorBase ? (
-            <Info
-              label={t.detail.valorBase}
-              value={valorBaseInteiro.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "EUR",
-              })}
-            />
-          ) : null}
-
-          {jogador.passaporte?.europeu ? (
-            <Info
-              label={t.detail.passaporteUE}
-              value={
-                <>
-                  <img
-                    src={PASSPORT_EU}
-                    alt="Passaporte UE"
-                    className="mr-1 inline-block h-4 w-4 align-middle"
-                  />
-                  {jogador.passaporte.pais}
-                </>
-              }
-            />
-          ) : null}
-
-          {jogador.selecao?.convocado ? (
-            <Info
-              label={t.detail.selecao}
-              value={`${t.detail.convocado}${
-                jogador.selecao.anos?.length
-                  ? ` (${jogador.selecao.anos.join(", ")})`
-                  : ""
-              }${jogador.selecao.categoria ? ` – ${jogador.selecao.categoria}` : ""}`}
-            />
-          ) : null}
-        </div>
-      </section>
-
-      {showResumo ? (
-        <section className="mb-3.5 rounded-[14px] border border-gray-200 bg-white p-4">
-          <h2 className="m-0 text-base font-extrabold text-slate-900">
-            {t.detail.resumo}
-          </h2>
-
-          <div className="mt-4 grid items-stretch gap-6 md:grid-cols-[1fr_1.2fr]">
-            <div className="flex h-full flex-col">
-              <div className="flex justify-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] text-gray-600">{t.form.temporada}</span>
-                  <SeasonSelect
-                    value={season}
-                    options={seasonOptions}
-                    onChange={setSeason}
-                    todasLabel={t.detail.todasTemporadas}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex flex-1 items-center justify-center">
-                <div className="flex justify-center gap-10">
-                  <StatItem label={t.detail.gols} value={stats.gols} />
-                  <StatItem label={t.detail.assistencias} value={stats.assistencias} />
-                  <StatItem label={t.detail.partidas} value={stats.partidas} />
-                </div>
-              </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Valor e direitos */}
+          <article data-pdf-block="true" className="surface p-5 lg:col-span-2">
+            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{f.valorDireitos}</h3>
+            <div className="mt-4 grid gap-5 sm:grid-cols-3">
+              <Metric label={t.ui.compare.valor}>
+                <AnimatedNumber value={valorEur || null} format={(n) => eurCompact(n, L)} />
+              </Metric>
+              <Metric label={t.ui.compare.posse}>
+                {posse !== null ? <AnimatedNumber value={posse * 100} format={(n) => `${num(n, L, 0)}%`} /> : "—"}
+              </Metric>
+              <Metric label={f.valorClube} accent>
+                {valorClube !== null ? <AnimatedNumber value={valorClube} format={(n) => eurCompact(n, L)} /> : "—"}
+              </Metric>
             </div>
 
-            <div className="flex items-center justify-center">
-              {videoEmbed ? (
-                <div className="aspect-video w-full max-w-[560px] overflow-hidden rounded-xl bg-black shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
+            {posse !== null ? (
+              <div className="mt-5">
+                <div className="flex h-2.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+                  <div
+                    className="h-full origin-left bg-[var(--accent)]"
+                    style={{ width: `${posse * 100}%`, animation: "grow-x 800ms var(--ease-out-expo) both" }}
+                  />
+                </div>
+                <div className="mt-2 flex justify-between text-[12px] text-gray-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[var(--accent)]" aria-hidden />
+                    {t.detail.clube} <span className="num font-medium text-gray-800">{num(posse * 100, L, 0)}%</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[var(--color-gray-300)]" aria-hidden />
+                    {f.outros} <span className="num font-medium text-gray-800">{num((1 - posse) * 100, L, 0)}%</span>
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-6 border-t border-[var(--hairline)] pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-[13px] font-medium text-gray-700">{f.contrato}</h4>
+                <ContractBadge fim={jogador.contratoFim} />
+              </div>
+              <ContractTimeline inicio={jogador.contratoInicio} fim={jogador.contratoFim} />
+            </div>
+          </article>
+
+          {/* Atributos + onde joga */}
+          <article data-pdf-block="true" className="surface p-5">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{f.atributos}</h3>
+              {perfil ? (
+                <span className="text-[12px] text-gray-500">
+                  {f.media} <span className="num text-[15px] font-semibold text-gray-950">{media(perfil)}</span>
+                </span>
+              ) : null}
+            </div>
+            {perfil ? (
+              <div className="mt-2">
+                <Radar series={[{ id: jogador.id, nome: jogador.nome, cor, perfil }]} labels={attrLabels} size={300} />
+              </div>
+            ) : null}
+            <p className="mt-1 text-center text-[11.5px] text-gray-500">{t.ui.compare.notaAtributos}</p>
+          </article>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <article data-pdf-block="true" className="surface p-5 lg:col-span-2">
+            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{f.dados}</h3>
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+              <Row label={t.detail.representacao} value={jogador.representacao} />
+              <Row label={t.ui.compare.agencia} value={jogador.empresario && jogador.empresario !== jogador.representacao ? jogador.empresario : null} />
+              <Row label={f.nacionalidade} value={jogador.nacionalidade} />
+              <Row label={f.cidade} value={jogador.cidade} />
+              <Row label={f.inicio + " · " + f.contrato.toLowerCase()} value={jogador.contratoInicio ? dataCurta(jogador.contratoInicio, L) : null} />
+              <Row label={f.fim + " · " + f.contrato.toLowerCase()} value={jogador.contratoFim ? dataCurta(jogador.contratoFim, L) : null} />
+              {user?.role === "ADMIN" && jogador.cpf ? (
+                <Row
+                  label={t.form.cpf}
+                  value={String(jogador.cpf).replace(/\D/g, "").slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, "$1.$2.$3-$4")}
+                />
+              ) : null}
+              {jogador.passaporte?.europeu ? (
+                <Row
+                  label={t.detail.passaporteUE}
+                  value={
+                    <span className="inline-flex items-center gap-1.5">
+                      <img src={PASSPORT_EU} alt="" className="h-4 w-4" />
+                      {jogador.passaporte.pais}
+                    </span>
+                  }
+                />
+              ) : null}
+              {jogador.selecao?.convocado ? (
+                <Row
+                  label={t.detail.selecao}
+                  value={`${t.detail.convocado}${jogador.selecao.anos?.length ? ` (${jogador.selecao.anos.join(", ")})` : ""}${
+                    jogador.selecao.categoria ? ` · ${jogador.selecao.categoria}` : ""
+                  }`}
+                />
+              ) : null}
+            </dl>
+            {jogador.racionalProspecao || jogador.observacoes ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {jogador.racionalProspecao ? <Note title={f.racional} text={jogador.racionalProspecao} /> : null}
+                {jogador.observacoes ? <Note title={f.observacoes} text={jogador.observacoes} /> : null}
+              </div>
+            ) : null}
+          </article>
+
+          <article data-pdf-block="true" className="surface p-5">
+            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{f.ondeJoga}</h3>
+            <div className="mt-4">
+              <MiniPitch posicao={jogador.posicao} label={pos} />
+            </div>
+            <p className="mt-3 text-center text-[13px] font-medium text-gray-700">{pos}</p>
+          </article>
+        </div>
+
+        {temStats || video ? (
+          <article data-pdf-block="true" className="surface p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{t.detail.resumo}</h3>
+              {temStats ? (
+                <label className="flex items-center gap-2 text-[13px] text-gray-600">
+                  {t.form.temporada}
+                  <select value={season} onChange={(e) => setSeason(e.target.value)} className="input !h-9 !w-auto cursor-pointer">
+                    <option value="todas">{t.detail.todasTemporadas}</option>
+                    {seasons.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+            <div className="mt-5 grid items-center gap-6 md:grid-cols-[1fr_1.3fr]">
+              {temStats ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    [t.detail.gols, s.gols],
+                    [t.detail.assistencias, s.assistencias],
+                    [t.detail.partidas, s.partidas],
+                  ].map(([label, v]) => (
+                    <div key={String(label)} className="rounded-[12px] bg-[var(--surface-2)] p-4 text-center ring-1 ring-[var(--hairline)]">
+                      <p className="num text-[28px] font-semibold tracking-[-0.03em] text-gray-950">{v as number}</p>
+                      <p className="mt-0.5 text-[12px] text-gray-500">{label as string}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div />
+              )}
+              {video ? (
+                <div className="aspect-video w-full overflow-hidden rounded-[12px] bg-black">
                   <iframe
                     className="block h-full w-full"
-                    src={videoEmbed}
-                    title="Vídeo do jogador"
+                    src={video}
+                    title={jogador.nome}
                     frameBorder={0}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
                 </div>
-              ) : (
-                <div className="aspect-video w-full max-w-[560px] rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500 grid place-items-center">
-                  {t.detail.semVideo}
-                </div>
-              )}
+              ) : null}
             </div>
-          </div>
-        </section>
-      ) : null}
+          </article>
+        ) : null}
 
-      {showInstagram ? (
-        <section className="mb-3.5 rounded-[14px] border border-gray-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="m-0 text-base font-extrabold text-slate-900">
-              Instagram
-            </h2>
-            <a
-              href={`https://www.instagram.com/${jogador.instagramHandle!.replace("@", "")}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] font-bold text-gray-900"
-            >
-              <Instagram size={16} />
-              <span>@{jogador.instagramHandle!.replace("@", "")}</span>
-            </a>
-          </div>
+        {jogador.instagramHandle ? (
+          <article data-pdf-block="true" className="surface p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[15px] font-semibold text-gray-950">Instagram</h3>
+              <a
+                href={`https://www.instagram.com/${jogador.instagramHandle.replace("@", "")}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-ghost no-underline"
+              >
+                <Instagram size={16} aria-hidden />@{jogador.instagramHandle.replace("@", "")}
+              </a>
+            </div>
+            {jogador.instagramPosts?.length ? (
+              <div className="mt-4 grid grid-cols-3 gap-2.5">
+                {jogador.instagramPosts.slice(0, 6).map((post, i) => (
+                  <a key={i} href={post.href} target="_blank" rel="noopener noreferrer" className="group relative aspect-square overflow-hidden rounded-[12px] bg-[var(--surface-2)]">
+                    {post.thumbUrl ? (
+                      <img src={post.thumbUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                    ) : null}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        ) : null}
 
-          {jogador.instagramPosts && jogador.instagramPosts.length > 0 ? (
-            <div className="grid auto-rows-fr grid-cols-3 gap-2.5">
-              {jogador.instagramPosts.slice(0, 6).map((post, i) => (
-                <a
-                  key={i}
-                  href={post.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative aspect-square w-full overflow-hidden rounded-xl border border-[#eef1f5] bg-white"
-                >
-                  {post.thumbUrl ? (
-                    <img
-                      src={post.thumbUrl}
-                      alt=""
-                      loading="lazy"
-                      className="absolute inset-0 block h-full w-full object-cover transition-transform duration-200 ease-out group-hover:scale-[1.04]"
-                    />
-                  ) : null}
-                </a>
+        {similares.length ? (
+          <section data-no-export="true" className="pt-2">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-gray-950">{f.parecidos}</h3>
+                <p className="text-[13px] text-gray-500">{f.parecidosSub}</p>
+              </div>
+              <Link href={`/comparar?ids=${[jogador.id, ...similares.slice(0, 2).map((x) => x.id)].join(",")}`} className="btn btn-ghost no-underline">
+                <Columns3 size={16} aria-hidden />
+                {f.comparar}
+              </Link>
+            </div>
+            <div className="stagger mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {similares.map((p) => (
+                <Link key={p.id} href={`/jogadores/${p.id}`} className="surface surface-hover flex items-center gap-3 p-3 no-underline">
+                  <PlayerAvatar nome={p.nome} posicao={p.posicao} imagemUrl={p.imagemUrl} size={40} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13.5px] font-medium text-gray-950">{p.nome}</p>
+                    <p className="num truncate text-[12px] text-gray-500">
+                      {p.idade} {t.ui.common.anos} · {eurMi(p.valorMercado, L)}
+                    </p>
+                  </div>
+                </Link>
               ))}
             </div>
-          ) : null}
-        </section>
-      ) : null}
+          </section>
+        ) : null}
+      </div>
     </section>
   );
 }
 
-/* ========================= COMPONENTES AUXILIARES ========================= */
-
-function ClubBadge({
-  nome,
-  logoUrl,
-}: {
-  nome: string;
-  logoUrl?: string | null;
-}) {
-  const { t } = useI18n();
+function Metric({ label, children, accent = false }: { label: string; children: ReactNode; accent?: boolean }) {
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-[0_6px_18px_rgba(0,0,0,0.05)]">
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt={nome}
-          className="h-10 w-10 rounded-full border border-gray-100 bg-white object-contain"
+    <div className="min-w-0">
+      <p className="text-[12.5px] text-gray-500">{label}</p>
+      <p
+        className="num mt-1 truncate text-[28px] font-semibold leading-tight tracking-[-0.03em]"
+        style={{ color: accent ? "var(--accent)" : "var(--ink)" }}
+      >
+        {children}
+      </p>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: ReactNode | null | undefined }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-[var(--hairline)] py-2.5 text-[13px]">
+      <dt className="text-gray-500">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-medium text-gray-900">{value}</dd>
+    </div>
+  );
+}
+
+function Note({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-[12px] bg-[var(--surface-2)] p-3.5 ring-1 ring-[var(--hairline)]">
+      <p className="text-[12px] font-medium text-gray-500">{title}</p>
+      <p className="mt-1 text-[13px] leading-5 text-gray-800">{text}</p>
+    </div>
+  );
+}
+
+function ContractTimeline({ inicio, fim }: { inicio?: string | null; fim?: string | null }) {
+  const { t, locale } = useI18n();
+  const L = intlLocale(locale);
+  const f = t.ui.ficha;
+  const [now] = useState(() => Date.now());
+  if (!inicio || !fim) return <p className="mt-3 text-[13px] text-gray-500">{f.semContrato}</p>;
+  const a = new Date(inicio).getTime();
+  const b = new Date(fim).getTime();
+  const pct = b > a ? Math.max(0, Math.min(1, (now - a) / (b - a))) : 1;
+  const m = mesesAte(fim) ?? 0;
+  const tone = m < 0 || m <= 6 ? "var(--bad)" : m <= 12 ? "var(--warn)" : "var(--accent)";
+  return (
+    <div className="mt-4">
+      <div className="relative h-2 rounded-full bg-[var(--surface-sunken)]">
+        <div
+          className="absolute inset-y-0 left-0 origin-left rounded-full"
+          style={{ width: `${pct * 100}%`, background: tone, animation: "grow-x 800ms var(--ease-out-expo) both" }}
         />
-      ) : (
-        <div className="grid h-10 w-10 place-items-center rounded-full bg-gray-200 font-extrabold text-gray-700">
-          {nome[0]}
+        <span
+          className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+          style={{ left: `${pct * 100}%`, background: tone }}
+          aria-hidden
+        />
+      </div>
+      <div className="num mt-2.5 flex items-center justify-between text-[12px] text-gray-500">
+        <span>{dataCurta(inicio, L)}</span>
+        <span className="text-gray-700">
+          {m >= 0 ? `${f.restam} ${m} ${t.ui.common.meses}` : t.ui.common.vencido}
+        </span>
+        <span>{dataCurta(fim, L)}</span>
+      </div>
+    </div>
+  );
+}
+
+function FichaSkeleton() {
+  return (
+    <section className="mx-auto w-full max-w-[1200px]" aria-busy="true">
+      <div className="skeleton h-4 w-40" />
+      <div className="skeleton mt-3 h-8 w-72" />
+      <div className="mt-8 h-[168px] rounded-[18px] bg-[var(--night-1)] opacity-90" />
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="surface h-[300px] p-5 lg:col-span-2">
+          <div className="skeleton h-4 w-32" />
+          <div className="mt-6 grid grid-cols-3 gap-5">
+            <div className="skeleton h-10" />
+            <div className="skeleton h-10" />
+            <div className="skeleton h-10" />
+          </div>
         </div>
-      )}
-
-      <div className="flex flex-col leading-tight">
-        <span className="text-[11px] uppercase tracking-wider text-gray-500">
-          {t.detail.clube}
-        </span>
-        <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-extrabold text-gray-900">
-          {nome}
-        </span>
+        <div className="surface h-[300px] p-5">
+          <div className="skeleton mx-auto mt-6 h-48 w-48 !rounded-full" />
+        </div>
       </div>
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex flex-col rounded-[10px] border border-[#eef1f5] bg-gray-50 px-3 py-2.5">
-      <span className="text-xs uppercase tracking-wider text-gray-500">
-        {label}
-      </span>
-      <span className="text-[13px] font-bold text-gray-900">{value}</span>
-    </div>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="min-w-[90px] text-center">
-      <span className="leading-none text-[28px] font-extrabold text-slate-900">
-        {value}
-      </span>
-      <div className="mt-1 text-xs uppercase tracking-wider text-gray-500">
-        {label}
-      </div>
-    </div>
+    </section>
   );
 }

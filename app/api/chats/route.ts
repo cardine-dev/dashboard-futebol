@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/authHelper";
+import { requireUser } from "@/lib/authHelper";
+import { handleRouteError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /** GET /api/chats — list user's conversations (newest first) */
 export async function GET(req: NextRequest) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   try {
     const conversations = await prisma.chatConversation.findMany({
@@ -26,15 +28,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ conversations });
   } catch (err) {
-    console.error("GET /api/chats error:", err);
-    return NextResponse.json({ error: "Erro ao buscar conversas" }, { status: 500 });
+    return handleRouteError(err, "GET /api/chats", "Erro ao buscar conversas");
   }
 }
 
 /** POST /api/chats — create a new conversation */
 export async function POST(req: NextRequest) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const auth = await requireUser(req, { role: "ADMIN" });
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.user.id;
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -49,7 +51,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ conversation }, { status: 201 });
   } catch (err) {
-    console.error("POST /api/chats error:", err);
-    return NextResponse.json({ error: "Erro ao criar conversa" }, { status: 500 });
+    return handleRouteError(err, "POST /api/chats", "Erro ao criar conversa");
   }
 }

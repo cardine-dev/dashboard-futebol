@@ -5,6 +5,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardGrid } from "./DashboardGrid";
 import { WidgetPickerDrawer } from "./WidgetPickerDrawer";
+import ContractsAlert from "@/components/ContractsAlert";
 import { KpiRow } from "./KpiRow";
 
 import { getLocalizedWidgets } from "@/lib/dashboard/widgetDefinitions";
@@ -261,7 +262,7 @@ const handleExport = useCallback(() => {
 
   return (
     <PlayersDrilldownProvider>
-      <div className="mx-auto max-w-7xl px-4 py-6">
+      <div className="w-full">
         <DashboardHeader
           view={layout.view}
           onViewChange={handleViewChange}
@@ -273,11 +274,17 @@ const handleExport = useCallback(() => {
         />
 
         {/* ESCOPO EXPORTÁVEL: só conteúdo. */}
-        <div ref={exportRef} data-export-scope="dashboard" className="mt-4">
+        <div ref={exportRef} data-export-scope="dashboard" className="mt-5">
           {/* KPIs como bloco (não corta no meio) */}
           <div data-pdf-block="true">
             <KpiRow data={kpis} loading={kpisLoading} scope={dataScope} />
           </div>
+
+          {dataScope !== "market" ? (
+            <div className="mt-4">
+              <ContractsAlert />
+            </div>
+          ) : null}
 
           <div className="mt-4">
             <DashboardGrid

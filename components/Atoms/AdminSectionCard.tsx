@@ -16,7 +16,7 @@ export default function AdminSectionCard({
   return (
     <section
       className={clsx(
-        "rounded-2xl border border-gray-200 bg-white px-5 py-4 space-y-5",
+        "surface px-5 py-4 space-y-5",
         className
       )}
     >

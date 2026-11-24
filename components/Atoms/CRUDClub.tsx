@@ -193,12 +193,12 @@ export default function CRUDClub({
 
   const headerActions = (
     <div className="flex gap-2">
-      <AdminButton label={t.crudClub.voltar} icon={ArrowLeft} href="/admin/clubes" />
+      <AdminButton label={t.crudClub.voltar} icon={ArrowLeft} variant="ghost" href="/admin/clubes" />
       <button
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="inline-flex items-center gap-2 rounded-xl bg-[#64748B] px-4 py-2 font-semibold text-black hover:brightness-95 disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--accent-ink)] hover:brightness-95 disabled:opacity-60"
       >
         <Save className="h-4 w-4" />
         {saving ? t.crudClub.salvando : t.crudClub.salvar}
@@ -237,7 +237,7 @@ export default function CRUDClub({
         }}
       />
 
-      <section className="mx-auto w-full max-w-6xl bg-gray-50 p-6">
+      <section className="mx-auto w-full max-w-6xl">
         <PageTitle
           base="Admin"
           title={pageTitle}
@@ -247,7 +247,7 @@ export default function CRUDClub({
           crumbLabel={t.crudClub.clubes}
         />
 
-        <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="space-y-6 surface p-5">
           {/* Dados básicos */}
           <div>
             <div className="mb-3 text-sm font-semibold text-gray-700">{t.crudClub.dadosClube}</div>
@@ -279,7 +279,7 @@ export default function CRUDClub({
                     </div>
 
                     <div className="flex-none">
-                      <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl border border-gray-200 bg-white">
+                      <div className="grid h-12 w-12 place-items-center overflow-hidden surface">
                         {hasLogo ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -296,7 +296,7 @@ export default function CRUDClub({
                     </div>
                   </div>
 
-                  <div className="mt-3 inline-flex rounded-xl border border-gray-200 bg-white p-1">
+                  <div className="mt-3 inline-flex surface p-1">
                     <button
                       type="button"
                       disabled={saving}

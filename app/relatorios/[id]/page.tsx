@@ -110,7 +110,7 @@ export default function ReportDetailPage() {
 
   if (loading) {
     return (
-      <section className="w-full bg-gray-50 p-6">
+      <section className="w-full">
         <div className="mx-auto w-full max-w-5xl">
           <PageTitle
             base={t.common.principal}
@@ -128,7 +128,7 @@ export default function ReportDetailPage() {
 
   if (error || !report) {
     return (
-      <section className="w-full bg-gray-50 p-6">
+      <section className="w-full">
         <div className="mx-auto w-full max-w-5xl">
           <PageTitle base={t.common.principal} title={t.relatorioDetail.erro} crumbLabel={t.relatorioDetail.relatorios} />
           <div className="mt-6 max-w-lg rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm">
@@ -148,7 +148,7 @@ export default function ReportDetailPage() {
   }
 
   return (
-    <section className="w-full bg-gray-50 p-6">
+    <section className="w-full">
       <div className="mx-auto w-full max-w-5xl">
         <PageTitle
           base={t.common.principal}
@@ -161,7 +161,7 @@ export default function ReportDetailPage() {
         <div className="mt-6">
           <div
             ref={exportRef}
-            className="rounded-2xl border border-gray-200 bg-white p-10 shadow-sm"
+            className="surface p-10 shadow-sm"
           >
             <div
               className="mb-6 flex items-start gap-3 border-b border-gray-100 pb-6"
