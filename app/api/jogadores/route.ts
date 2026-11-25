@@ -4,17 +4,11 @@ import { mapPlayerToJogador } from "@/lib/mapPlayerToJogador";
 import type { Jogador } from "@/type/jogador";
 import { requireUser } from "@/lib/authHelper";
 import { apiError, handleRouteError } from "@/lib/apiError";
-import { PlayerInput, jsonNull } from "@/lib/validation/player";
+import { PlayerInput, toPlayerData } from "@/lib/validation/player";
 
 export const dynamic = "force-dynamic";
 
 type ClubLite = { id: string; nome: string; logoUrl: string | null };
-
-function normalizeCPF(v: any): string | null {
-  if (v === undefined || v === null) return null;
-  const digits = String(v).replace(/\D/g, "").slice(0, 11);
-  return digits || null;
-}
 
 const MAX_IDS = 200;
 
@@ -83,25 +77,13 @@ export async function POST(req: Request) {
   try {
     const body = PlayerInput.parse(await req.json().catch(() => ({})));
 
-    const nome = String(body?.nome ?? "").trim();
-    if (!nome) {
+    if (!body.nome) {
       return apiError(400, "Preencha o nome do jogador.");
     }
 
-    const cpf = normalizeCPF(body?.cpf);
-
-    // (opcional) valida CPF incompleto quando enviado
-    if (
-      body?.cpf !== undefined &&
-      body?.cpf !== null &&
-      cpf &&
-      cpf.length !== 11
-    ) {
-      return apiError(400, "CPF inválido (precisa ter 11 dígitos).");
-    }
-
-    // clube via ID
-    const clubeId = body?.clubeId ? String(body.clubeId) : null;
+    const parsed = toPlayerData(body);
+    if ("error" in parsed) return apiError(400, parsed.error);
+    const clubeId = body.clubeId ?? null;
 
     // valida clubeId (se enviado) e já pega nome+logo
     let club: ClubLite | null = null;
@@ -110,51 +92,13 @@ export async function POST(req: Request) {
         where: { id: clubeId },
         select: { id: true, nome: true, logoUrl: true },
       });
-
       if (!club) {
         return apiError(400, "clubeId inválido (clube não existe).");
       }
     }
-    const data: any = {
-      nome,
 
-      cpf,
-
-      idade: body?.idade ?? 0,
-      posicao: body?.posicao ?? "ATA",
-      peDominante: body?.peDominante ?? "D",
-      valorMercado: body?.valorMercado ?? 0,
-      possePct: body?.possePct ?? null,
-      representacao: body?.representacao ?? null,
-      situacao: body?.situacao ?? null,
-      contratoInicio: body?.contratoInicio ? new Date(body.contratoInicio) : null,
-      contratoFim: body?.contratoFim ? new Date(body.contratoFim) : null,
-      numeroCamisa: body?.numeroCamisa ?? null,
-      altura: body?.altura ?? null,
-      imagemUrl: body?.imagemUrl ?? null,
-
-      // único campo de clube
-      clubeId,
-
-      // estruturas
-      statsPorTemporada: jsonNull(body?.statsPorTemporada ?? null),
-      passaporte: jsonNull(body?.passaporte ?? null),
-      selecao: jsonNull(body?.selecao ?? null),
-
-      // mídia
-      instagramHandle: body?.instagramHandle ?? null,
-      instagramPosts: jsonNull(body?.instagramPosts ?? null),
-      xUrl: body?.xUrl ?? null,
-      youtubeUrl: body?.youtubeUrl ?? null,
-      videoUrl: body?.videoUrl ?? null,
-
-      // complementares
-      anoNascimento: body?.anoNascimento ?? null,
-      cidade: body?.cidade ?? null,
-      nacionalidade: body?.nacionalidade ?? null,
-      racionalProspecao: body?.racionalProspecao ?? null,
-      observacoes: body?.observacoes ?? null,
-    };
+    // Padrões do cadastro; o que veio no corpo sobrescreve.
+    const data: any = { idade: 0, posicao: "ATA", peDominante: "D", valorMercado: 0, ...parsed.data, clubeId };
     const created = await prisma.player.create({ data });
 
     return NextResponse.json(

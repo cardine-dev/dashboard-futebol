@@ -110,8 +110,25 @@ export const PlayerInput = z.object({
   clubeId: z.preprocess(blankToNull, z.string().max(64).nullable()),
 }).partial();
 
-export type PlayerInputT = z.infer<typeof PlayerInput>;
-
 /** Campo Json limpo: o Prisma real exige o sentinela DbNull; o mock da demo guarda null. */
 export const jsonNull = (v: unknown) =>
   (v === null ? (isDemo ? null : Prisma.DbNull) : v) as Prisma.InputJsonValue | typeof Prisma.DbNull;
+
+const JSON_FIELDS = ["passaporte", "selecao", "statsPorTemporada", "instagramPosts"] as const;
+
+/**
+ * Corpo validado → `data` do Prisma: só os campos enviados, CPF só com dígitos,
+ * Json limpo com o sentinela certo. Devolve `error` se o CPF vier incompleto.
+ */
+export function toPlayerData(body: z.infer<typeof PlayerInput>) {
+  const data: Record<string, unknown> = Object.fromEntries(
+    Object.entries(body).filter(([, v]) => v !== undefined),
+  );
+  if (typeof body.cpf === "string") {
+    const cpf = body.cpf.replace(/\D/g, "").slice(0, 11);
+    if (cpf && cpf.length !== 11) return { error: "CPF inválido (precisa ter 11 dígitos)." } as const;
+    data.cpf = cpf || null;
+  }
+  for (const k of JSON_FIELDS) if (k in data) data[k] = jsonNull(data[k]);
+  return { data } as const;
+}
