@@ -90,37 +90,46 @@ function load(id: string): Promise<State> {
   return p;
 }
 
-async function loadOnce(id: string): Promise<State> {
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function readRemote(id: string): Promise<{ v: number; snap: { v: number; t: Tables } | null }> {
   const c = cache();
   // O cliente do cache não lança erro: falha ou timeout viram null.
-  const remoteV = Number((await c.get(vKey(id)).catch(() => null)) ?? 0) || 0;
+  const v = Number((await c.get(vKey(id)).catch(() => null)) ?? 0) || 0;
+  if (v === 0) return { v, snap: null };
+  const raw = await c.get(dKey(id)).catch(() => null);
+  if (typeof raw !== "string") return { v, snap: null };
+  try {
+    return { v, snap: JSON.parse(raw, (_k, x) => (typeof x === "string" && ISO_DATE.test(x) ? new Date(x) : x)) };
+  } catch {
+    return { v, snap: null };
+  }
+}
+
+async function loadOnce(id: string): Promise<State> {
   const mine = local.get(id);
-  // Cópia local tão nova quanto a remota: usa a local.
-  if (mine && mine.version >= remoteV) return mine;
-  if (remoteV === 0) {
+  let r = await readRemote(id);
+  // O cache é regional e leva alguns ms para propagar uma escrita: instância nova que lê
+  // "nada" (ou snapshot atrás da versão) tenta de novo antes de concluir.
+  if (mine && mine.version >= r.v) return mine; // cópia local tão nova quanto a remota
+  if (r.v === 0 || !(r.snap && r.snap.v >= r.v)) {
+    await wait(150);
+    r = await readRemote(id);
+    if (mine && mine.version >= r.v) return mine;
+  }
+  if (r.v === 0) {
     const fresh: State = { id, version: 0, tables: seed(), dirty: false };
     remember(fresh);
     return fresh;
   }
-
-  // Snapshot guarda a própria versão; só vale se for a versão anunciada (ou mais nova).
-  let snap: { v: number; t: Tables } | null = null;
-  const raw = await c.get(dKey(id)).catch(() => null);
-  if (typeof raw === "string") {
-    try {
-      snap = JSON.parse(raw, (_k, v) => (typeof v === "string" && ISO_DATE.test(v) ? new Date(v) : v));
-    } catch {
-      snap = null;
-    }
-  }
-  if (snap && snap.v >= remoteV) {
+  if (r.snap && r.snap.v >= r.v) {
     if (mine) {
       // atualiza no lugar: quem já segura este objeto vê os dados novos
-      mine.tables = snap.t;
-      mine.version = snap.v;
+      mine.tables = r.snap.t;
+      mine.version = r.snap.v;
       return mine;
     }
-    const state: State = { id, version: snap.v, tables: snap.t, dirty: false };
+    const state: State = { id, version: r.snap.v, tables: r.snap.t, dirty: false };
     remember(state);
     return state;
   }
